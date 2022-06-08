@@ -1,0 +1,140 @@
+#set working directory
+
+#start QIIME
+conda activate qiime2-2021.4
+
+#Gzip all files so that within each emp-paired-end-sequences folder there are three files:
+gzip forward.fastq
+gzip reverse.fastq
+gzip barcodes.fastq
+
+#Make paired end sequence artifact
+qiime tools import \
+  --type EMPPairedEndSequences \
+  --input-path emp-paired-end-sequences \
+  --output-path emp-paired-end-sequences.qza
+
+#Demultiplex sequence reads 
+qiime demux emp-paired \
+  --i-seqs emp-paired-end-sequences.qza \
+  --m-barcodes-file Barcodes_Run1.txt \
+  --m-barcodes-column BarcodeSequence \
+  --p-rev-comp-mapping-barcodes \
+  --p-rev-comp-barcodes \
+  --o-per-sample-sequences demux_run1rev.qza \
+  --o-error-correction-details demux-details_run1rev.qza
+
+#Visualize results
+qiime demux summarize \
+  --i-data demux_run1rev.qza \
+  --o-visualization demux_run1rev.qzv
+
+#Denoise with DADA2
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux_run1rev.qza \
+  --p-trim-left-f 13 \
+  --p-trim-left-r 13 \
+  --p-trunc-len-f 150 \
+  --p-trunc-len-r 150 \
+  --o-representative-sequences rep-seqs_run1rev \
+  --o-table table_run1rev.qza \
+  --o-denoising-stats denoising-stats_run1rev.qza 
+
+#Generate Feature Table
+qiime feature-table summarize \
+  --i-table table_run1rev.qza \
+  --o-visualization table_run1rev.qzv \
+  --m-sample-metadata-file Barcodes_Run1.txt
+
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs.qza\
+  --o-visualization rep-seqsqzv
+
+#Merge runs
+qiime feature-table merge \
+  --i-tables {TABLE-1}.qza \
+  --i-tables {TABLE-2}.qza\
+  --o-merged-table {COMBINED-TABLE}.qza
+
+qiime feature-table merge-seqs \
+  --i-data {REP-SEQS-1}.qza \
+  --i-data {REP-SEQS-2}.qza \
+  --o-merged-data {COMBINED-REP-SEQS}.qza
+
+qiime feature-table summarize \
+  --i-table {COMBINED-TABLE}.qza \
+  --o-visualization {COMBINED-TABLE_VIZ}.qzv \
+  --m-sample-metadata-file sample-metadata.tsv
+
+qiime feature-table merge \
+  --i-tables run1/table_run1.qza \
+  --i-tables run2/table_run2.qza \
+  --i-tables run3/table_run3.qza \
+  --i-tables run4/table_run4.qza \
+  --o-merged-table Combined_runs/alldata_table.qza
+
+qiime feature-table merge-seqs \
+  --i-data run1/rep-seqs_run1.qza \
+  --i-data run2/rep-seqs_run2.qza \
+  --i-data run3/rep-seqs_run3.qza \
+  --i-data run4/rep-seqs_run4.qza \
+  --o-merged-data Combined_runs/alldata_rep-seqs.qza
+
+qiime feature-table summarize \
+  --i-table {COMBINED-TABLE}.qza \
+  --o-visualization {COMBINED-TABLE_VIZ}.qzv \
+  --m-sample-metadata-file sample-metadata.tsv
+
+#Taxonomic Assignment
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-99-515-806-nb-classifier.qza \
+  --i-reads alldata_rep-seqs.qza\
+  --o-classification alldata_taxonomy.qza
+
+ qiime metadata tabulate \
+  --m-input-file taxonomy_run1rev.qza \
+  --o-visualization taxonomy_run1rev.qzv
+
+#Generate taxonomic barplots
+qiime taxa barplot \
+  --i-table table_run1rev.qza \
+  --i-taxonomy taxonomy_run1rev.qza \
+  --m-metadata-file Barcodes_Run1.txt\
+  --o-visualization taxa-bar-plots_run1rev.qzv
+
+#Remove chloroplast and mitochondria
+qiime taxa filter-table \
+  --i-table alldata_table.qza\
+  --i-taxonomy alldata_taxonomy.qza \
+  --p-exclude mitochondria,chloroplast \
+  --o-filtered-table alldata_filteredtable.qza
+
+#Generate taxonomic barplots
+qiime taxa barplot \
+  --i-table alldata_filteredtable.qza\
+  --i-taxonomy alldata_taxonomy.qza\
+  --m-metadata-file Cath_MB_Barcodes_All.txt\
+  --o-visualization taxa-bar-plots_alldata.qzv
+
+#Generate phylogenetic tree 
+qiime alignment mafft \
+  --i-sequences alldata_rep-seqs.qza \
+  --o-alignment alldata_aligned-rep-seqs.qza
+
+qiime alignment mask \
+  --i-alignment alldata_aligned-rep-seqs.qza \
+  --o-masked-alignment alldata_masked-aligned-rep-seqs.qza
+
+
+qiime phylogeny fasttree \
+  --i-alignment alldata_masked-aligned-rep-seqs.qza \
+  --o-tree alldata_unrooted-tree.qza
+
+qiime phylogeny midpoint-root \
+  --i-tree alldata_unrooted-tree.qza \
+  --o-rooted-tree rooted-tree.qza
+
+#for phyloseq
+qiime tools export \
+ --input-path alldata_filteredtable.qza \
+ --output-path phyloseq
