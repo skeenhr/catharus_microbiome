@@ -1,2 +1,615 @@
-##R
+library(phyloseq)
+library(ggplot2)
+library(decontam)
+library(ape)
+library(tidyverse)
+library(dplyr)
+library(vegan)
+library(cowplot)
+
+############################
+###Create phyloseq object###
+############################
+
+setwd("")
+
+##read in otu table
+otu_table <- read.csv("otu_matrix.csv", row.names=1,header = TRUE)
+otu_table <- as.matrix(otu_table)
+
+#read in taxonomy
+taxonomy <- read.csv(file = "taxonomy_cath.csv", row.names = 1, na.strings = "")
+
+##read in metadata 
+metadata = read.csv("Metadata.csv", header = TRUE)
+
+#read in tree
+phy_tree = read_tree("renamed.unrooted.names.tre")
+
+
+
+# TAXONOMY change empty NA to "Unknown" 
+# phylum 
+taxonomy$Phylum <- as.character(taxonomy$Phylum)   
+taxonomy[taxonomy$Phylum %in% NA, "Phylum" ] <- "Unknown"
+
+# class
+taxonomy$Class <- as.character(taxonomy$Class)   
+taxonomy[taxonomy$Class %in% NA, "Class" ] <- "Unknown"
+taxonomy$Class <- as.character(taxonomy$Class)   
+taxonomy[taxonomy$Class %in% "uncultured bacterium", "Class" ] <- "Unknown"
+
+# order 
+taxonomy$Order <- as.character(taxonomy$Order)   
+taxonomy[taxonomy$Order %in% NA, "Order" ] <- "Unknown"
+
+# family
+taxonomy$Family <- as.character(taxonomy$Family)   
+taxonomy[taxonomy$Family %in% NA, "Family" ] <- "Unknown"
+
+# genus
+taxonomy$Genus <- as.character(taxonomy$Genus)   
+taxonomy[taxonomy$Genus %in% NA, "Genus" ] <- "Unknown"
+
+# species
+taxonomy$Species <- as.character(taxonomy$Species)   
+taxonomy[taxonomy$Species %in% NA, "Species" ] <- "Unknown"
+
+# convert taxonomy to a matrix
+taxonomy = as.matrix(taxonomy)
+head(taxonomy)
+
+
+###Fix METADATA if sampleIDs are not displaying correctly 
+meta.df <- metadata %>% select(-SampleID) %>% as.data.frame
+rownames(meta.df) <- metadata$SampleID
+sample.metadata <- sample_data(meta.df)
+
+
+#import as phyloseq objects
+OTU = otu_table(otu_table, taxa_are_rows = TRUE)
+TAX = tax_table(taxonomy)
+META = sample_data(sample.metadata)
+#(tree was already imported as a phyloseq object)
+
+##check that your OTU names are consistent across objects
+head(taxa_names(TAX))
+head(taxa_names(OTU))
+head(taxa_names(phy_tree))
+
+##make sure your files have the same sample names
+head(sample_names(OTU))
+head(sample_names(META))
+
+##create phyloseq object
+cath_PS = phyloseq(OTU, TAX, META, phy_tree)
+cath_PS
+
+
+
+##################################
+###Basic Numbers pre-processing###
+##################################
+
+#number of ASVs
+ntaxa(cath_PS)
+
+#total number reads per sample
+read_sums <- sample_sums(cath_PS)
+
+#total number reads
+sum(sample_sums(cath_PS))
+
+##################
+###remove all OTUs that are unassigned past bacteria and whatever else needs to be removed
+##################
+tax1 <- as.data.frame(taxonomy)
+unique(tax1$Domain)
+
+cath_01 <- subset_taxa(cath_PS, Domain != "Unassigned")  
+cath_01 <- subset_taxa(cath_01, Domain != "Eukaryota")
+cath_01 <- subset_taxa(cath_01, Domain != "Archaea")
+
+unique(tax1$Phylum)
+cath_02 <- subset_taxa(cath_01, Phylum != "Unknown")
+cath_02
+
+################
+### Decontam ###
+################
+
+##inspect library size
+#Put sample_data into a ggplot-friendly data.frame
+df <- as.data.frame(sample_data(cath_02)) 
+df$LibrarySize <- sample_sums(cath_02)
+df <- df[order(df$LibrarySize),]
+df$Index <- seq(nrow(df))
+ggplot(data=df, aes(x=Index, y=LibrarySize, color=Sample_or_Control)) + geom_point()
+
+head(df)
+
+##prev/abundance method at default 
+sample_data(cath_02)$is.neg <- sample_data(cath_02)$Sample_or_Control == "Control"
+contamdf.prev <- isContaminant(cath_02, method="prevalence", neg="is.neg", threshold=0.5)
+table(contamdf.prev$contaminant)
+
+which(contamdf.prev$contaminant)
+
+##Check true vs. false contaminants
+##https://benjjneb.github.io/decontam/vignettes/decontam_intro.html#identify-contaminants---prevalence
+ps.pa <- transform_sample_counts(cath_02, function(abund) 1*(abund>0))
+ps.pa.neg <- prune_samples(sample_data(ps.pa)$Sample_or_Control == "Control", ps.pa)
+ps.pa.pos <- prune_samples(sample_data(ps.pa)$Sample_or_Control == "Sample", ps.pa)
+# Make data.frame of prevalence in positive and negative samples
+df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
+                    contaminant=contamdf.prev$contaminant)
+                                      
+###Plot 0 - Decontam
+ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
+  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)") +
+  geom_jitter()
+ggsave("figures/decontam.pdf", width = 9.5, height = 6.5, unit = "in", dpi = 300)
+
+#remove contaminants after confirming contaminants
+cath_03 <- prune_taxa(!contamdf.prev$contaminant, cath_02)
+cath_03
+
+read_sums <- sample_sums(cath_03)
+sum(read_sums)
+
+
+##############################
+###Remove Negative Controls###
+##############################
+
+###This removes Neg.Cons and three samples with missing metadata
+cath_04 <- subset_samples(cath_03, Keep_Remove !="Remove")
+cath_04
+
+read_sums <- sample_sums(cath_04)
+read_sums <- as.data.frame(read_sums)
+#write.csv(read_sums, "cath_04_readsums.csv")
+
+
+###################
+###basic numbers###
+###################
+#number reads per sample
+ss<- sample_sums(cath_04)
+ss <- as.matrix(ss)
+ss
+sum(ss)
+
+mean(ss)
+sd(ss)
+median(ss)
+ntaxa(cath_04)
+
+
+#plot histogram of num ASVs per sample
+ss1 <- as.data.frame(ss)
+head(ss1)
+names(ss1)[1]<- "counts"
+
+ss2 <- ss1
+SampleID <- rownames(ss2)
+rownames(ss2) <- NULL
+ss2 <- cbind(SampleID, ss2)
+
+meta2 <- metadata
+
+ss_meta <- merge(meta2, ss2,  by = "SampleID")
+
+#ss_plot1 <- ggplot(ss_meta, aes(x = counts, fill = Season)) + 
+#  geom_bar(aes(), stat = "identity", position = "stack")
+#ss_plot1
+
+
+###Plot1 - number of reads per library
+ss_plot <- data_frame(val = ss1$counts) %>%
+  ggplot(., aes(val)) + 
+  geom_histogram(bins = 200) +
+  #ggtitle("number of reads per individual") +
+  xlab("Reads") + 
+  ylab("Libraries")
+ss_plot
+
+ggsave("figures/num_reads_per_library.pdf", width = 9.5, height = 6.5, unit = "in", dpi = 300)
+
+
+##average number of ASVs per sample
+asv_df <- t(otu_table(cath_04))
+ts <- rowSums(asv_df != 0)
+ts <- as.matrix(ts)
+ts
+head(ts)
+sort(ts)
+mean(ts)
+sd(ts)
+
+
+#plot histogram of num ASVs per sample
+ts1 <- as.data.frame(ts)
+head(ts1)
+names(ts1)[1]<- "counts"
+
+###Plot2 - number of ASVs per library
+ASV_plot <- data_frame(val = ts1$counts) %>%
+  ggplot(., aes(val)) + 
+  geom_histogram(bins = 200) +
+  #ggtitle("number of ASVs per individual") +
+  xlab("ASVs") + 
+  ylab("Libraries")
+ASV_plot
+ggsave("figures/num_ASVs_per_library.pdf", width = 9.5, height = 6.5, unit = "in", dpi = 300)
+
+ts2 <- ts1
+SampleID <- rownames(ts2)
+rownames(ts2) <- NULL
+ts2 <- cbind(SampleID, ts2)
+
+
+tak1<- merge(ts2, ss2, by=c("SampleID"))
+tak2<- merge(tak1, metadata, by = c("SampleID") )
+head(tak2)
+
+
+###Total number of phyla and classes detected in dataset 
+glom_phy <- tax_glom(cath_04, taxrank = 'Phylum')
+glom_cla <- tax_glom(cath_04, taxrank = 'Class')
+glom_ord <- tax_glom(cath_04, taxrank = 'Order')
+glom_fam <- tax_glom(cath_04, taxrank = 'Family')
+glom_gen <- tax_glom(cath_04, taxrank = 'Genus')
+
+
+############################################
+###Remove samples with <X number of reads###
+############################################
+
+##cath_05 is absolute abundance
+
+cath_05_500 <- prune_samples(sample_sums(cath_04)>=500, cath_04)
+cath_05_500
+#This results in removal of 67 individuals
+
+#cath_05_1000 <- prune_samples(sample_sums(cath_04)>=1000, cath_04)
+#cath_05_1000
+#This results in removal of 109 individuals
+
+cath_05_5000 <- prune_samples(sample_sums(cath_04)>=5000, cath_04)
+cath_05_5000
+#This results in removal of 279 individuals
+
+#cath_05_10000 <- prune_samples(sample_sums(cath_04)>=10000, cath_04)
+#cath_05_10000
+#This results in removal of 354 individuals
+
+############
+###Rarefy###
+############
+cath_05_500_rare <- rarefy_even_depth(cath_05_500, rngseed=124, replace=FALSE)
+cath_05_5000_rare <- rarefy_even_depth(cath_05_5000, rngseed=124, replace=FALSE)
+
+
+##############################################
+###Transform absolute abundance to relative###
+##############################################
+
+##cath_06 is relative abundances 
+
+#non-rarefied
+cath_06_500 <- transform_sample_counts(cath_05_500, function(x) x / sum(x))
+cath_06_5000 <- transform_sample_counts(cath_05_5000, function(x) x / sum(x))
+
+#rarefied
+cath_06_500_rare <- transform_sample_counts(cath_05_500_rare, function(x) x / sum(x))
+cath_06_5000_rare <- transform_sample_counts(cath_05_5000_rare, function(x) x / sum(x))
+
+
+########################
+###glom the to Phylum###
+########################
+
+###this is all relative abundance objects
+
+##Phylum 
+glom_500_phylum <- tax_glom(cath_06_500, taxrank = 'Phylum')
+glom_5000_phylum <- tax_glom(cath_06_5000, taxrank = 'Phylum')
+glom_500_rare_phylum <- tax_glom(cath_06_500_rare, taxrank = 'Phylum')
+glom_5000_rare_phylum <- tax_glom(cath_06_5000_rare, taxrank = 'Phylum')
+
+#Class
+glom_500_class <- tax_glom(cath_06_500, taxrank = 'Class')
+glom_5000_class <- tax_glom(cath_06_5000, taxrank = 'Class')
+glom_500_rare_class <- tax_glom(cath_06_500_rare, taxrank = 'Class')
+glom_5000_rare_class <- tax_glom(cath_06_5000_rare, taxrank = 'Class')
+
+#Order
+glom_500_order <- tax_glom(cath_06_500, taxrank = 'Order')
+glom_5000_order <- tax_glom(cath_06_5000, taxrank = 'Order')
+glom_500_rare_order <- tax_glom(cath_06_500_rare, taxrank = 'Order')
+glom_5000_rare_order <- tax_glom(cath_06_5000_rare, taxrank = 'Order')
+
+#Family
+glom_500_family <- tax_glom(cath_06_500, taxrank = 'Family')
+glom_5000_family <- tax_glom(cath_06_5000, taxrank = 'Family')
+glom_500_rare_family <- tax_glom(cath_06_500_rare, taxrank = 'Family')
+glom_5000_rare_family <- tax_glom(cath_06_5000_rare, taxrank = 'Family')
+
+#Genus
+glom_500_genus <- tax_glom(cath_06_500, taxrank = 'Genus')
+glom_5000_genus <- tax_glom(cath_06_5000, taxrank = 'Genus')
+glom_500_rare_genus <- tax_glom(cath_06_500_rare, taxrank = 'Genus')
+glom_5000_rare_genus <- tax_glom(cath_06_5000_rare, taxrank = 'Genus')
+
+###melt the glom
+#Phylum
+dat_500_phylum <- psmelt(glom_500_phylum)
+dat_5000_phylum <- psmelt(glom_5000_phylum)
+dat_500_rare_phylum <- psmelt(glom_500_rare_phylum)
+dat_5000_rare_phylum <- psmelt(glom_5000_rare_phylum)
+
+#Class
+dat_500_class <- psmelt(glom_500_class)
+dat_5000_class <- psmelt(glom_5000_class)
+dat_500_rare_class <- psmelt(glom_500_rare_class)
+dat_5000_rare_class <- psmelt(glom_5000_rare_class)
+
+#Order
+dat_500_order <- psmelt(glom_500_order)
+dat_5000_order <- psmelt(glom_5000_order)
+dat_500_rare_order <- psmelt(glom_500_rare_order)
+dat_5000_rare_order <- psmelt(glom_5000_rare_order)
+
+#Family
+dat_500_family <- psmelt(glom_500_family)
+dat_5000_family <- psmelt(glom_5000_family)
+dat_500_rare_family <- psmelt(glom_500_rare_family)
+dat_5000_rare_family <- psmelt(glom_5000_rare_family)
+
+#Genus
+dat_500_genus <- psmelt(glom_500_genus)
+dat_5000_genus <- psmelt(glom_5000_genus)
+dat_500_rare_genus <- psmelt(glom_500_rare_genus)
+dat_5000_rare_genus <- psmelt(glom_5000_rare_genus)
+
+
+
+##########################
+###For Phyla abundances###
+##########################
+
+dat_500_phylum$Phylum <- as.character(dat_500_phylum$Phylum)
+dat_5000_phylum$Phylum <- as.character(dat_5000_phylum$Phylum)
+dat_500_rare_phylum$Phylum <- as.character(dat_500_rare_phylum$Phylum)
+dat_5000_rare_phylum$Phylum <- as.character(dat_5000_rare_phylum$Phylum)
+
+#Phylum
+phy_abun_500 <- aggregate(Abundance ~ Sample+Phylum, dat_500_phylum, FUN=sum)
+phy_abun_5000 <- aggregate(Abundance ~ Sample+Phylum, dat_5000_phylum, FUN=sum)
+phy_abun_500_rare <- aggregate(Abundance ~ Sample+Phylum, dat_500_rare_phylum, FUN=sum)
+phy_abun_5000_rare <- aggregate(Abundance ~ Sample+Phylum, dat_5000_rare_phylum, FUN=sum)
+
+#Class
+class_abun_500 <- aggregate(Abundance ~ Sample+Class, dat_500_class, FUN=sum)
+class_abun_5000 <- aggregate(Abundance ~ Sample+Class, dat_5000_class, FUN=sum)
+class_abun_500_rare <- aggregate(Abundance ~ Sample+Class, dat_500_rare_class, FUN=sum)
+class_abun_5000_rare <- aggregate(Abundance ~ Sample+Class, dat_5000_rare_class, FUN=sum)
+
+
+###use to get average(mean, sd) of phyla abundances
+
+###phy_abun_500
+abun1 <- phy_abun_500
+head(phy_abun_500)
+abundance_overall_1 <- abun1 %>% 
+  group_by(Phylum) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Phylum, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_1
+#write.csv(abundance_overall_1, "tables/phylum_abundance_500_overall.csv")
+
+###Phylum, 500, rarefied
+abun2<-phy_abun_500_rare
+abundance_overall_2 <- phy_abun_500_rare %>% 
+  group_by(Phylum) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Phylum, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_2
+#write.csv(abundance_overall_2, "tables/phylum_abundance_500_rare_overall.csv")
+
+###Class, 500
+abun3<-class_abun_500
+abundance_overall_3 <- abun3 %>% 
+  group_by(Class) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Class, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_3
+#write.csv(abundance_overall_3, "tables/class_abundance_500_overall.csv")
+
+###Class, 500, rare
+abun4<-class_abun_500_rare
+abundance_overall_4 <- abun4 %>% 
+  group_by(Class) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Class, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_4
+#write.csv(abundance_overall_4, "tables/class_abundance_500_rare_overall.csv")
+
+
+###Phylum, 5000, rarefied
+abundance_overall_5 <- phy_abun_5000_rare %>% 
+  group_by(Phylum) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Phylum, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_5
+#write.csv(abundance_overall_5, "tables/phylum_abundance_5000_rare_overall.csv")
+
+###Class, 5000, rare
+abundance_overall_6 <- class_abun_5000_rare %>% 
+  group_by(Class) %>% 
+  dplyr::mutate(Mean_Abundance = mean(Abundance)) %>% 
+  dplyr::mutate(SD_Abundance = sd(Abundance)) %>%
+  select(-Abundance) %>% 
+  select(-Sample) %>% 
+  distinct(Class, Mean_Abundance, SD_Abundance, keep.all = TRUE)
+abundance_overall_6
+#write.csv(abundance_overall_6, "tables/class_abundance_5000_rare_overall.csv")
+
+
+
+########################################
+###See what Cyanobacteria are present###
+###and double check not chloroplasts####
+########################################
+
+physex_for_cyano <- phlo_obj.
+  
+cath_cyano <- subset_taxa(physex_for_cyano, Phylum=="Cyanobacteria")
+glom_cyano <- tax_glom(cath_cyano, taxrank="Class")
+dat_cyano <- psmelt(glom_cyano)
+unique(dat_cyano$Class) 
+
+
+####################
+###Taxa Bar Plots###
+####################
+
+##What do you want to plot?
+phylo_to_plot <- dat_500_rare_phylum
+plot_title<-("phyla abundance, 500 reads, rare")
+
+rare_taxa <- 0.1    ###what is the cutoff for rare taxa
+
+#Set what abundance
+phylo_to_plot$Phylum[phylo_to_plot$Abundance < rare_taxa] <- "rare taxa"
+unique(phylo_to_plot$Phylum)
+
+#dgp_top5$Phylum <- replace(as.character(dgp_top5$Phylum), dgp_top5$Phylum == "Verrucomicrobiota", "<1% abund.")
+#dgp_top5$Phylum <- replace(as.character(dgp_top5$Phylum), dgp_top5$Phylum == "Campilobacterota", "<1% abund.")
+#dgp_top5$Phylum <- replace(as.character(dgp_top5$Phylum), dgp_top5$Phylum == "Bacteroidota", "<1% abund.")
+#dgp_top5$Phylum <- replace(as.character(dgp_top5$Phylum), dgp_top5$Phylum == "Desulfobacterota", "<1% abund.")
+#dgp_top5$Phylum <- replace(as.character(dgp_top5$Phylum), dgp_top5$Phylum == "Chloroflexi", "<1% abund.")
+#unique(dgp_top5$Phylum)
+
+phylo_to_plot$Julian_Ordered2 <- as.character(phylo_to_plot$Julian_Ordered)
+
+###Order
+##These are consistently the  most abundant taxa 
+unique(phylo_to_plot$Phylum)
+##but do not set until making figures//final determination 
+
+###put things in order
+phylo_to_plot$Phylum <- factor(phylo_to_plot$Phylum, 
+                               levels = c("Actinobacteriota", "Planctomycetota", 
+                                          "Proteobacteria", "Firmicutes",
+                                          "Verrucomicrobiota", "Campilobacterota",
+                                          "Bacteroidota", "Desulfobacterota",
+                                          "Cyanobacteria", "Chloroflexi",
+                                          "rare taxa" ))
+
+phylo_to_plot$Season <- factor(phylo_to_plot$Season,
+                               levels = c("Spring", "Summer", "Autumn"))
+
+phylo_to_plot$Season_Year <- factor(phylo_to_plot$Season_Year,
+                                    levels = c("SP17", "SU17", "AU17",
+                                               "SP18", "SU18", "AU18",
+                                               "SP19", "SU19", "AU19"))
+
+##set colors to phyla
+plot_palette <- c("Actinobacteriota" = "#710162",
+                   "Planctomycetota" = "#a12a5e",
+                   "Proteobacteria" = "#ed0345", 
+                   "Firmicutes" = "#ef6a32",
+                   "Verrucomicrobiota" = "#fbbf45",
+                   "Campilobacterota" = "#aad962",
+                   "Bacteroidota" = "#03c383",
+                   "Desulfobacterota" = "#017531",
+                   "Cyanobacteria" = "#01545a",
+                   "Chloroflexi" = "#26294a",
+                   "rare taxa" = "dim gray")
+
+
+
+###Overall plot, ordered by date of collection
+taxa_plot <- ggplot(data = phylo_to_plot, aes(Julian_Ordered2, Abundance, fill = Phylum)) +
+  facet_grid(~Season, scales = "free_x", space = "free_x") +
+  scale_fill_manual(values = plot_palette) +
+  theme(axis.title.x = element_text(size = rel(1.2), angle = 00)) +
+  geom_bar(aes(), stat = "identity", position = "stack") +
+  ggtitle(plot_title) + 
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  xlab("Date of Collection") 
+
+taxa_plot
+
+
+
+###separate out years
+plot_2017 <- subset(phylo_to_plot, Year =="2017")
+plot_2018 <- subset(phylo_to_plot, Year =="2018")
+plot_2019 <- subset(phylo_to_plot, Year =="2019")
+
+
+
+taxa_plot_2017 <- ggplot(data = plot_2017, aes(Julian_Ordered2, Abundance, fill = Phylum)) +
+  facet_grid(~Season, scales = "free_x", space = "free_x") +
+  scale_fill_manual(values = plot_palette) +
+  theme(axis.title.x = element_text(size = rel(1.2), angle = 00)) +
+  geom_bar(aes(), stat = "identity", position = "stack") +
+  labs(title = "2017",
+       subtitle = plot_title) + 
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  theme(legend.title = element_blank()) +
+  xlab("Date of Collection") 
+taxa_plot_2017
+
+##2018
+taxa_plot_2018 <- ggplot(data = plot_2018, aes(Julian_Ordered2, Abundance, fill = Phylum)) +
+  facet_grid(~Season, scales = "free_x", space = "free_x") +
+  scale_fill_manual(values = plot_palette) +
+  theme(axis.title.x = element_text(size = rel(1.2), angle = 00)) +
+  geom_bar(aes(), stat = "identity", position = "stack") +
+  labs(title = "2019",
+       subtitle = plot_title) + 
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  theme(legend.title = element_blank()) +
+  xlab("Date of Collection") 
+taxa_plot_2018
+
+##2019
+taxa_plot_2019 <- ggplot(data = plot_2019, aes(Julian_Ordered2, Abundance, fill = Phylum)) +
+  facet_grid(~Season, scales = "free_x", space = "free_x") +
+  scale_fill_manual(values = plot_palette) +
+  theme(axis.title.x = element_text(size = rel(1.2), angle = 00)) +
+  geom_bar(aes(), stat = "identity", position = "stack") +
+  labs(title = "2019",
+       subtitle = plot_title) +
+  theme(axis.text.x = element_blank(), axis.ticks.x=element_blank()) +
+  theme(legend.title = element_blank()) +
+  xlab("Date of Collection") 
+taxa_plot_2019
+
+taxa_plot_grid <- plot_grid(taxa_plot_2017, 
+                            taxa_plot_2018,
+                            taxa_plot_2019,
+                            nrow = 3)
+taxa_plot_grid
+
+
 
