@@ -1,0 +1,851 @@
+library(phyloseq)
+library(tidyverse)
+library(d)
+library(DT)
+library(ANCOMBC)
+library(microbiome) ##for aggregate taxa function 
+library(cowplot)
+library(ggforce)
+
+#setwd()
+
+###aggregate and subset
+
+genus_500 <- aggregate_taxa(cath_05_500, "Genus")
+genus_500 <- prune_taxa(taxa_sums(genus_500) > 0, genus_500)
+
+##year_genus
+genus_1819 <- subset_samples(genus_500, Year !="2017A")
+genus_1719 <- subset_samples(genus_500, Year !="2018A")
+genus_1718 <- subset_samples(genus_500, Year !="2019A")
+
+##season_genus
+genus_SPSU <- subset_samples(genus_500, Season !="Autumn")
+genus_SUFA <- subset_samples(genus_500, Season !="Spring")
+genus_SPFA <- subset_samples(genus_500, Season !="Summer")
+
+##species_genus
+genus_SWVE <- subset_samples(genus_500, species == c("ustulatus", "fuscescens"))
+genus_SWGC <- subset_samples(genus_500, species ==c("ustulatus", "minimus"))
+genus_SWHT <- subset_samples(genus_500, species ==c("ustulatus", "guttatus"))
+genus_VEGC <- subset_samples(genus_500, species ==c("fuscescens", "minimus"))
+genus_VEHT <- subset_samples(genus_500, species ==c("fuscescens", "guttatus"))
+genus_GCHT <- subset_samples(genus_500, species ==c("minimus", "guttatus"))
+
+
+###Phylum
+phylum_500 <- aggregate_taxa(cath_05_500, "Phylum")
+phylum_500 <- prune_taxa(taxa_sums(phylum_500) > 0, phylum_500)
+
+
+##year_phylum
+phylum_1819 <- subset_samples(phylum_500, Year !="2017A")
+phylum_1719 <- subset_samples(phylum_500, Year !="2018A")
+phylum_1718 <- subset_samples(phylum_500, Year !="2019A")
+
+##season_phylum
+phylum_SPSU <- subset_samples(phylum_500, Season !="Autumn")
+phylum_SUFA <- subset_samples(phylum_500, Season !="Spring")
+phylum_SPFA <- subset_samples(phylum_500, Season !="Summer")
+
+##species_phylum
+phylum_SWVE <- subset_samples(phylum_500, species == c("ustulatus", "fuscescens"))
+phylum_SWGC <- subset_samples(phylum_500, species ==c("ustulatus", "minimus"))
+phylum_SWHT <- subset_samples(phylum_500, species ==c("ustulatus", "guttatus"))
+phylum_VEGC <- subset_samples(phylum_500, species ==c("fuscescens", "minimus"))
+phylum_VEHT <- subset_samples(phylum_500, species ==c("fuscescens", "guttatus"))
+phylum_GCHT <- subset_samples(phylum_500, species ==c("minimus", "guttatus"))
+
+
+
+ds_1 <- genus_SPSU
+colnames_1 <-("genus_SPSU")
+variable_1 <- "Season"
+
+ds_2 <- genus_SUFA
+colnames_2 <-("genus_SUFA")
+variable_2 <- "Season"
+
+ds_3 <- genus_SPFA
+colnames_3 <-("genus_SPFA")
+variable_3 <- "Season"
+
+
+#tax_mat_genus = as(tax_table(genus_500), "matrix")
+#tax_mat_phylum = as(tax_table(phylum_500), "matrix")
+
+###Pair 1  
+out_all_1 = ANCOMBC::ancombc(phyloseq = ds_1, formula = variable_1,
+                             p_adj_method = "bonferroni", zero_cut = 0.90, lib_cut = 500,
+                             group = variable_1, struc_zero = TRUE, neg_lb = FALSE,
+                             tol = 1e-5, max_iter = 500, conserve = FALSE,
+                             alpha = 0.05, global = FALSE)
+
+res_1 = out_all_1$res
+head(res_1)
+
+
+df_log_1 = data.frame(res_1$beta, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_log_1)[-1]= colnames_1 
+head(df_log_1)
+
+df_sd_1 = data.frame(res_1$se, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_sd_1)[-1]= colnames_1 
+colnames(df_sd_1)[-1] = paste0(colnames(df_sd_1)[-1], "_SD")
+head(df_sd_1)
+
+df_p_1 = data.frame(res_1$q, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_p_1)[-1]= colnames_1 
+colnames(df_p_1)[-1] = paste0(colnames(df_p_1)[-1], "_adj_p")
+head(df_p_1)
+
+df_A = df_log_1 %>% left_join(df_sd_1, by = "taxon_id") 
+head(df_A)
+df_A <- df_A %>% left_join(df_p_1, by = "taxon_id") 
+head(df_A)
+df_A$taxon_id = factor(df_A$taxon_id, levels = df_A$taxon_id)
+head(df_A)
+
+
+###Pair 2
+out_all_2 = ANCOMBC::ancombc(phyloseq = ds_2, formula = variable_2,
+                             p_adj_method = "bonferroni", zero_cut = 0.90, lib_cut = 500,
+                             group = variable_2, struc_zero = TRUE, neg_lb = FALSE,
+                             tol = 1e-5, max_iter = 500, conserve = FALSE,
+                             alpha = 0.05, global = FALSE)
+
+res_2 = out_all_2$res
+head(res_2)
+
+
+df_log_2 = data.frame(res_2$beta, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_log_2)[-1]= colnames_2 
+
+df_sd_2 = data.frame(res_2$se, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_sd_2)[-1]= colnames_2 
+colnames(df_sd_2)[-1] = paste0(colnames(df_sd_2)[-1], "_SD")
+
+df_p_2 = data.frame(res_2$q, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_p_2)[-1]= colnames_2 
+colnames(df_p_2)[-1] = paste0(colnames(df_p_2)[-1], "_adj_p")
+
+
+df_B = df_log_2 %>% left_join(df_sd_2, by = "taxon_id") 
+head(df_B)
+df_B <- df_B %>% left_join(df_p_2, by = "taxon_id") 
+head(df_B)
+df_B$taxon_id = factor(df_B$taxon_id, levels = df_B$taxon_id)
+head(df_B)
+
+
+###Pair 3
+out_all_3 = ANCOMBC::ancombc(phyloseq = ds_3, formula = variable_3,
+                             p_adj_method = "bonferroni", zero_cut = 0.90, lib_cut = 500,
+                             group = variable_3, struc_zero = TRUE, neg_lb = FALSE,
+                             tol = 1e-5, max_iter = 500, conserve = FALSE,
+                             alpha = 0.05, global = FALSE)
+
+res_3 = out_all_3$res
+head(res_3)
+
+
+df_log_3 = data.frame(res_3$beta, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_log_3)[-1]= colnames_3 
+
+df_sd_3 = data.frame(res_3$se, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_sd_3)[-1]= colnames_3 
+colnames(df_sd_3)[-1] = paste0(colnames(df_sd_3)[-1], "_SD")
+
+df_p_3 = data.frame(res_3$q, check.names = FALSE) %>% 
+  rownames_to_column("taxon_id")
+colnames(df_p_3)[-1]= colnames_3 
+colnames(df_p_3)[-1] = paste0(colnames(df_p_3)[-1], "_adj_p")
+
+
+df_C = df_log_3 %>% left_join(df_sd_3, by = "taxon_id") 
+head(df_C)
+df_C <- df_C %>% left_join(df_p_3, by = "taxon_id") 
+head(df_C)
+df_C$taxon_id = factor(df_C$taxon_id, levels = df_C$taxon_id)
+head(df_C)
+
+
+
+###Make Final Dataset to export 
+###will need to modify this slightly depending on the variable
+
+final_data = df_A %>% left_join(df_B, by = "taxon_id") 
+final_data = final_data %>% left_join(df_C, by = "taxon_id") 
+head(final_data)
+
+#final_data2 = final_data %>% left_join(final_data1, by = "taxon_id")
+#head(final_data2)
+
+#write_csv(final_data, "ancombc/ancombc_cath_genus_season.csv")
+
+
+
+###plot ancombc raw output
+p = ggplot(data = df_fig, 
+           aes(x = taxon_id, y = Year2019A)) + 
+  geom_bar(stat = "identity", width = 0.7, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(ymin = Year2019A - Year2019ASD, ymax = Year2019A + Year2019ASD), width = 0.2,
+                position = position_dodge(0.05), color = "black") + 
+  labs(x = NULL, y = "Log fold change", 
+       title = "Age-ANCOMBC-Genera") + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text(angle = 60, hjust = 1))
+p
+
+
+
+
+
+###For publishable figures
+
+
+
+################
+###YEAR_GENUS###
+################
+yg_plot<-read.csv("~/Dropbox/Microbiome_Catharus/phyloseq/ancombc/ancom_genus_year_plot.csv")
+head(yg_plot)
+
+yg_plot$genus <- factor(yg_plot$genus, levels = yg_plot$genus[order(as.numeric(yg_plot$order))])
+
+year_palette <- c("Acidobacteriota" = "#ef9a9a", 
+                  "Actinobacteriota" = "#f48fb1",
+                  "Cyanobacteria" = "#90caf9",
+                  "Desulfobacterota" = "#80deea",
+                  "Firmicutes" = "#a5d6a7", 
+                  "MBNT15" = "#e6ee9c", 
+                  "Patescibacteria" = "#ffe082",
+                  "Planctomycetota" = "#ffcc80",
+                  "Proteobacteria" = "#ffab91",
+                  "Verrucomicrobiota" = "#bcaaa4") 
+
+
+plot1719 <- ggplot(yg_plot, aes(x = LogFold_1719, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = year_palette) +
+  geom_errorbar(aes(xmin = LowerCI_1719, xmax = UpperCI_1719), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2017 vs. 2019") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_x_continuous(limits = c(-4,6), breaks = c(-4:6)) +
+  geom_point(aes(x=sig_1719, y=genus), shape = 8, show.legend=FALSE)
+plot1719
+
+
+
+plot1819 <- ggplot(yg_plot, aes(x = LogFold_1819, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = year_palette) +
+  geom_errorbar(aes(xmin = LowerCI_1819, xmax = UpperCI_1819), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2018 vs. 2019") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_x_continuous(limits = c(-4,6), breaks = c(-4:6)) +
+  geom_point(aes(x=sig_1819, y=genus), shape = 8)
+plot1819
+
+
+plot1718 <- ggplot(yg_plot, aes(x = LogFold_1718, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = year_palette) +
+  geom_errorbar(aes(xmin = LowerCI_1718, xmax = UpperCI_1718), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2017 vs. 2018") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_x_continuous(limits = c(-4,6), breaks = c(-4:6)) +
+  geom_point(aes(x=sig_1718, y=genus), shape = 8)
+plot1718
+
+
+
+plot1719_legend <- ggplot(yg_plot, aes(x = LogFold_1719, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = year_palette) +
+  geom_errorbar(aes(xmin = LowerCI_1719, xmax = UpperCI_1719), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2017 vs. 2019") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_x_continuous(limits = c(-4,6), breaks = c(-4:6)) +
+  geom_point(aes(x=sig_1719, y=genus), shape = 8, show.legend=FALSE)
+plot1719_legend
+
+plot1719_legend2 <- get_legend(plot1719_legend)
+
+
+
+year_ancom_plot <- plot_grid(plot1718, plot1819, plot1719,
+                             nrow = 1, rel_widths = c(0.36, 0.24, 0.24))
+bottom_year<-plot_grid("NA", plot1719_legend2, nrow =1, rel_widths =c(0.15,0.85) )
+
+year_ancom_plot2<-plot_grid(year_ancom_plot, bottom_year, nrow = 2, rel_heights = c(0.85, 0.15))
+
+ggsave("ancom_genus_year_Jan14.pdf", 
+       plot = year_ancom_plot2, 
+       width = 9, height = 6)
+
+
+
+
+##################
+###SEASON_GENUS###
+##################
+ys_plot<-read.csv("ancombc_cath_genus_season_plot.csv")
+head(ys_plot)
+
+ys_plot$genus <- factor(ys_plot$genus, levels = ys_plot$genus[order(as.numeric(ys_plot$order))])
+
+season_palette <- c("Acidobacteriota" = "#ef9a9a", 
+                    "Actinobacteriota" = "#f48fb1",
+                    "Bacteroidota" = "#ce93d8", 
+                    #"Campilobacterota" = "#b39ddb",
+                    #"Chloroflexi" = "#9fa8da", 
+                    "Cyanobacteria" = "#90caf9",
+                    "Dependentiae" = "#81d4fa",
+                    #"Desulfobacterota" = "#80deea",
+                    #"Fibrobacterota" = "#80cbc4",
+                    "Firmicutes" = "#a5d6a7", 
+                    #"Gemmatimonadota" = "#c5e1a5",
+                    #"MBNT15" = "#e6ee9c", 
+                    "Myxococcota" = "#fff59d",
+                    "Patescibacteria" = "#ffe082",
+                    "Planctomycetota" = "#ffcc80",
+                    "Proteobacteria" = "#ffab91",
+                    "Verrucomicrobiota" = "#bcaaa4") 
+
+plotSPSU <- ggplot(ys_plot, aes(x = SpSu_LogFold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = season_palette) +
+  geom_errorbar(aes(xmin = SpSu_LowerCI, xmax = SpSu_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Spring vs. Summer") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_x_continuous(limits = c(-4,5), breaks = c(-4:5)) +
+  geom_point(aes(x=SPSU_Sig, y=genus), shape = 8)
+plotSPSU
+
+
+
+plotSUFA <- ggplot(ys_plot, aes(x = SuFa_LogFold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SuFa_LowerCI, xmax = SuFa_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = season_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Summer vs. Fall") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  scale_x_continuous(limits = c(-4,5), breaks = c(-4:5)) +
+  geom_point(aes(x=SUFA_Sig, y=genus), shape = 8)
+plotSUFA
+
+
+plotSPFA <- ggplot(ys_plot, aes(x = SpFa_LogFold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SpFa_LowerCI, xmax = SpFa_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = season_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Spring vs. Fall") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text( hjust = 1),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank()) +
+  scale_x_continuous(limits = c(-4,5), breaks = c(-4:5))+
+  geom_point(aes(x=SPFA_Sig, y=genus), shape = 8, show.legend=FALSE)
+plotSPFA
+
+
+
+
+
+
+season_legend <- ggplot(ys_plot, aes(x = SpFa_LogFold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SpFa_LowerCI, xmax = SpFa_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = season_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Spring vs. Fall") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  scale_x_continuous(limits = c(-4,5), breaks = c(-4:5))+
+  geom_point(aes(x=SPFA_Sig, y=genus), shape = 8, show.legend=FALSE)
+season_legend
+
+season_legend1 <- get_legend(season_legend)
+
+season_ancom_plot <- cowplot::plot_grid(plotSPSU, plotSUFA, plotSPFA, 
+                               nrow = 1, rel_widths = c(0.44, 0.2, 0.2))
+season_bottom <- plot_grid(NA, season_legend1, nrow =1, rel_widths = c(0.1,0.9))
+
+
+
+
+season_ancom_plot2<-plot_grid(season_ancom_plot, season_bottom, nrow = 2, rel_heights = c(0.85, 0.15))
+
+ggsave("ancom_genus_season_Jan14.pdf", 
+       plot = season_ancom_plot2, 
+       width = 9, height = 7)
+
+###################
+###SPECIES_GENUS###
+###################
+species_plot<-read.csv("ancombc/ancombc_cath_genus_species.csv")
+head(species_plot)
+
+species_plot$genus <- factor(species_plot$genus, levels = species_plot$genus[order(as.numeric(species_plot$order))])
+
+
+plot_species <- ggplot(species_plot, aes(x = logFold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  facet_wrap(Pair ~ ., space = "free", scales = "free_y",
+             as.table = TRUE, ncol = 1, strip.position = "top")
+plot_species
+
+
+geom_errorbar(aes(xmin = LowerCI, xmax = UpperCI), width = 0.2,
+              position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Species") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_x_continuous(limits = c(-4,5), breaks = c(-4:5))
+plot_species
+
+
+#################
+###YEAR_PHYLUM###
+#################
+phy_year_plot<-read.csv("ancombc_phy_year_plot.csv")
+head(phy_year_plot)
+
+phylum_palette <- c("Acidobacteriota" = "#ef9a9a", 
+                     "Actinobacteriota" = "#f48fb1",
+                     "Bacteroidota" = "#ce93d8", 
+                     "Campilobacterota" = "#b39ddb",
+                     "Chloroflexi" = "#9fa8da", 
+                     "Cyanobacteria" = "#90caf9",
+                     "Dependentiae" = "#81d4fa",
+                     "Desulfobacterota" = "#80deea",
+                     "Fibrobacterota" = "#80cbc4",
+                     "Firmicutes" = "#a5d6a7", 
+                     "Gemmatimonadota" = "#c5e1a5",
+                     "MBNT15" = "#e6ee9c", 
+                     "Myxococcota" = "#fff59d",
+                     "Patescibacteria" = "#ffe082",
+                     "Planctomycetota" = "#ffcc80",
+                     "Proteobacteria" = "#ffab91",
+                     "Verrucomicrobiota" = "#bcaaa4")
+
+phy_year_plot$Phylum <- factor(phy_year_plot$Phylum, levels = phy_year_plot$Phylum[order(as.numeric(phy_year_plot$order))])
+
+
+
+phylum_1719 <- ggplot(phy_year_plot, aes(x = LogFold_1719, y = Phylum, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = LowerCI_1719, xmax = UpperCI_1719), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = phylum_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2017 vs. 2019") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  scale_x_continuous(limits = c(-3,5.5), breaks = c(-4:6))+
+  geom_point(aes(x=sig_1719, y=Phylum), shape = 8) 
+phylum_1719
+
+phylum_1819 <- ggplot(phy_year_plot, aes(x = LogFold_1819, y = Phylum, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = LowerCI_1819, xmax = UpperCI_1819), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = phylum_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2018 vs. 2019") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  scale_x_continuous(limits = c(-3,5.5), breaks = c(-4:6))+
+  geom_point(aes(x=sig_1819, y=Phylum), shape = 8) 
+phylum_1819
+
+phylum_1718 <- ggplot(phy_year_plot, aes(x = LogFold_1718, y = Phylum, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = LowerCI_1718, xmax = UpperCI_1718), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  scale_fill_manual(values = phylum_palette) +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "2017 vs. 2018") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  scale_x_continuous(limits = c(-3,5.5), breaks = c(-4:6))
+phylum_1718
+
+year_ancom_phy <- plot_grid(phylum_1718, phylum_1719, phylum_1819,rel_widths=c(0.4, 0.28, 0.28),
+                            nrow = 1)
+year_ancom_phy
+
+ggsave("ancom_phylum_year_Jan14.pdf", 
+       plot = year_ancom_phy, 
+       width = 8, height = 3)
+
+year_ancom_phy2<-plot_grid(NA, phylum_1718, phylum_1719, phylum_1819, NA, nrow = 1,
+                           rel_widths = c(0.05, 0.3, 0.15, 0.15, 0.1))
+comb_year <- plot_grid(year_ancom_plot, year_ancom_phy2, nrow = 2, 
+                       rel_heights = c(5,2), align = "hv")
+comb_year
+
+###################
+###SEASON_PHYLUM###
+###################
+phylum_season_plot<-read.csv("ancombc/ancom_phy_season_plot.csv")
+head(phylum_season_plot)
+
+season_palette <- c("Acidobacteriota" = "#ef9a9a", 
+                    "Actinobacteriota" = "#f48fb1",
+                    "Bacteroidota" = "#ce93d8", 
+                    "Campilobacterota" = "#b39ddb",
+                    "Chloroflexi" = "#9fa8da", 
+                    "Cyanobacteria" = "#90caf9",
+                    "Dependentiae" = "#81d4fa",
+                    "Desulfobacterota" = "#80deea",
+                    "Fibrobacterota" = "#80cbc4",
+                    "Firmicutes" = "#a5d6a7", 
+                    "Gemmatimonadota" = "#c5e1a5",
+                    "MBNT15" = "#e6ee9c", 
+                    "Myxococcota" = "#fff59d",
+                    "Patescibacteria" = "#ffe082",
+                    "Planctomycetota" = "#ffcc80",
+                    "Proteobacteria" = "#ffab91",
+                    "Verrucomicrobiota" = "#bcaaa4")
+
+
+phylum_season_plot$Phylum <- factor(phylum_season_plot$Phylum, levels = phylum_season_plot$Phylum[order(as.numeric(phylum_season_plot$order))])
+
+phylum_SPSU <- ggplot(phylum_season_plot, aes(x = SPSU_LogFold, y = Phylum, fill = Phylum)) +
+  scale_fill_manual(values = season_palette) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SPSU_LowerCI, xmax = SPSU_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Spring vs. Summer") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_x_continuous(limits = c(-3,3), breaks = c(-3:3)) +
+  geom_point(aes(x=sig_SPSU, y=Phylum), shape = 8) 
+phylum_SPSU
+
+
+
+phylum_SUFA <- ggplot(phylum_season_plot, aes(x = SUFA_LogFold, y = Phylum, fill = Phylum)) +
+  scale_fill_manual(values = season_palette) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SUFA_LowerCI, xmax = SUFA_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Summer vs. Fall") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  scale_x_continuous(limits = c(-3,3), breaks = c(-3:3))+
+  geom_point(aes(x=sig_SUFA, y=Phylum), shape = 8)
+phylum_SUFA
+
+phylum_SPFA <- ggplot(phylum_season_plot, aes(x = SPFA_LogFold, y = Phylum, fill = Phylum)) +
+  scale_fill_manual(values = season_palette) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  geom_errorbar(aes(xmin = SPFA_LowerCI, xmax = SPFA_UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Spring vs. Fall") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text( hjust = 1),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks.y=element_blank(),) +
+  scale_x_continuous(limits = c(-3,3), breaks = c(-3:3)) +
+  geom_point(aes(x=sig_SPFA, y=Phylum), shape = 8)
+phylum_SPFA
+
+
+season_ancom_phy <- plot_grid(phylum_SPSU, phylum_SUFA, phylum_SPFA, 
+                              nrow = 1, rel_widths = c(0.4, 0.28, 0.28))
+season_ancom_phy
+
+ggsave("ancombc/ancom_phylum_season.pdf", 
+       plot = season_ancom_phy, 
+       width = 8, height = 3)
+
+
+
+
+
+
+
+
+
+year_palette <- c("Acidobacteriota" = "#ef9a9a", 
+                  "Actinobacteriota" = "#f48fb1",
+                  "Bacteroidota" = "#ce93d8", 
+                  "Campilobacterota" = "#b39ddb",
+                  "Chloroflexi" = "#9fa8da", 
+                  "Cyanobacteria" = "#90caf9",
+                  "Dependentiae" = "#81d4fa",
+                  "Desulfobacterota" = "#80deea",
+                  "Fibrobacterota" = "#80cbc4",
+                  "Firmicutes" = "#a5d6a7", 
+                  "Gemmatimonadota" = "#c5e1a5",
+                  "MBNT15" = "#e6ee9c", 
+                  "Myxococcota" = "#fff59d",
+                  "Patescibacteria" = "#ffe082",
+                  "Planctomycetota" = "#ffcc80",
+                  "Proteobacteria" = "#ffab91",
+                  "Verrucomicrobiota" = "#bcaaa4")
+
+
+###SPECIES###
+spec_plot<-read.csv("ancombc/ancom_genus_species_plot.csv")
+head(spec_plot)
+
+spec_plot$genus <- factor(spec_plot$genus, levels = spec_plot$genus[order(as.numeric(spec_plot$order))])
+
+spec_palette <- c(#"Acidobacteriota" = "#ef9a9a", 
+                    "Actinobacteriota" = "#f48fb1",
+                   #"Bacteroidota" = "#ce93d8", 
+                    "Campilobacterota" = "#b39ddb",
+                    #"Chloroflexi" = "#9fa8da", 
+                    "Cyanobacteria" = "#90caf9",
+                    #"Dependentiae" = "#81d4fa",
+                    #"Desulfobacterota" = "#80deea",
+                    #"Fibrobacterota" = "#80cbc4",
+                    #"Firmicutes" = "#a5d6a7", 
+                    #"Gemmatimonadota" = "#c5e1a5",
+                    #"MBNT15" = "#e6ee9c", 
+                    #"Myxococcota" = "#fff59d",
+                    #"Patescibacteria" = "#ffe082",
+                    #"Planctomycetota" = "#ffcc80",
+                    "Proteobacteria" = "#ffab91",
+                    "Verrucomicrobiota" = "#bcaaa4") 
+
+
+plot_spec <- ggplot(spec_plot, aes(x = Log_Fold, y = genus, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = spec_palette) +
+  ggforce::facet_col(vars(host), scales = "free_y", space = "free") +
+  geom_errorbar(aes(xmin = LowerCI, xmax = UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Host species") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(#legend.position = "none",
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.minor.y = element_blank(),
+        axis.text.x = element_text( hjust = 1),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_x_continuous(limits = c(-4,4), breaks = c(-4:4)) +
+  geom_point(aes(x=sig), shape = 8)
+plot_spec
+
+ggsave("ancombc/ancom_genus_hostspecies.pdf", 
+       plot = plot_spec, 
+       width = 8, height = 6)
+
+
+
+spec_plot2<-read.csv("ancom_phylum_species_plot.csv")
+spec_plot2 <- ancom_phylum_species_plot
+head(spec_plot2)
+
+
+spec_palette2 <- c(#"Acidobacteriota" = "#ef9a9a", 
+  "Actinobacteriota" = "#f48fb1",
+  #"Bacteroidota" = "#ce93d8", 
+  "Campilobacterota" = "#b39ddb",
+  #"Chloroflexi" = "#9fa8da", 
+  #"Cyanobacteria" = "#90caf9",
+  #"Dependentiae" = "#81d4fa",
+  #"Desulfobacterota" = "#80deea",
+  #"Fibrobacterota" = "#80cbc4",
+  #"Firmicutes" = "#a5d6a7", 
+  #"Gemmatimonadota" = "#c5e1a5",
+  #"MBNT15" = "#e6ee9c", 
+  #"Myxococcota" = "#fff59d",
+  "Patescibacteria" = "#ffe082")
+  #"Planctomycetota" = "#ffcc80",
+  #"Proteobacteria" = "#ffab91",
+  #"Verrucomicrobiota" = "#bcaaa4") 
+
+
+plot_spec2 <- ggplot(spec_plot2, aes(x = LogFold, y = Phylum, fill = Phylum)) +
+  geom_bar(stat = "identity", width = 0.9, 
+           position = position_dodge(width = 0.4)) +
+  scale_fill_manual(values = spec_palette2) +
+  ggforce::facet_col(vars(host), scales = "free_y", space = "free") +
+  geom_errorbar(aes(xmin = LowerCI, xmax = UpperCI), width = 0.2,
+                position = position_dodge(0.95), color = "black") +
+  theme_bw() + 
+  labs(x = "Log fold change", y = NULL, title = "Host species") +
+  geom_vline(xintercept=0, size = 0.25) +
+  theme(legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text( hjust = 1),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) +
+  scale_x_continuous(limits = c(-2.5,2.5), breaks = c(-2.5:2.5)) +
+  geom_point(aes(x=sig), shape = 8)
+plot_spec2
+
+ggsave("ancom_phylum_hostspecies2.pdf", 
+       plot = plot_spec2, 
+       width = 4, height = 3)
+
+
