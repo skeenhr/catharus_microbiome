@@ -1,0 +1,1157 @@
+library(phyloseq)
+library(dplyr)
+library(vegan)
+library(ape)
+library(cowplot)
+library(beepr)
+library(broom)
+
+library(knitr)
+library(rmarkdown)
+
+###These gloms are on unrarefied, unpruned data 
+glom_phy <- tax_glom(cath_04, taxrank = 'Phylum')
+glom_cla <- tax_glom(cath_04, taxrank = 'Class')
+glom_ord <- tax_glom(cath_04, taxrank = 'Order')
+glom_fam <- tax_glom(cath_04, taxrank = 'Family')
+glom_gen <- tax_glom(cath_04, taxrank = 'Genus')
+
+
+##prune to appropriate amountts
+phylum_500 <- prune_samples(sample_sums(glom_phy)>=500, glom_phy)
+class_500 <- prune_samples(sample_sums(glom_cla)>=500, glom_cla)
+order_500 <- prune_samples(sample_sums(glom_ord)>=500, glom_ord)
+family_500 <- prune_samples(sample_sums(glom_fam)>=500, glom_fam)
+genus_500 <- prune_samples(sample_sums(glom_gen)>=500, glom_gen)
+
+phylum_5000 <- prune_samples(sample_sums(glom_phy)>=5000, glom_phy)
+class_5000 <- prune_samples(sample_sums(glom_cla)>=5000, glom_cla)
+order_5000 <- prune_samples(sample_sums(glom_ord)>=5000, glom_ord)
+family_5000 <- prune_samples(sample_sums(glom_fam)>=5000, glom_fam)
+genus_5000 <- prune_samples(sample_sums(glom_gen)>=5000, glom_gen)
+
+###rarefy even depth 
+phylum_500_rare <- rarefy_even_depth(phylum_500, rngseed=124, replace=FALSE)
+class_500_rare <- rarefy_even_depth(class_500, rngseed=124, replace=FALSE)
+order_500_rare <- rarefy_even_depth(order_500, rngseed=124, replace=FALSE)
+family_500_rare <- rarefy_even_depth(family_500, rngseed=124, replace=FALSE)
+genus_500_rare <- rarefy_even_depth(genus_500, rngseed=124, replace=FALSE)
+
+phylum_5000_rare <- rarefy_even_depth(phylum_5000, rngseed=124, replace=FALSE)
+class_5000_rare <- rarefy_even_depth(class_5000, rngseed=124, replace=FALSE)
+order_5000_rare <- rarefy_even_depth(order_5000, rngseed=124, replace=FALSE)
+family_5000_rare <- rarefy_even_depth(family_5000, rngseed=124, replace=FALSE)
+genus_5000_rare <- rarefy_even_depth(genus_5000, rngseed=124, replace=FALSE)
+
+
+###remove ASVs with 0 counts
+###to see if there are ASVs with 0 count
+###use any(taxa_sums(phyloseq_object) == 0)
+any(taxa_sums(phylum_500_rare) == 0)
+any(taxa_sums(class_500_rare) == 0)
+any(taxa_sums(order_500_rare) == 0)
+any(taxa_sums(family_500_rare) == 0)
+any(taxa_sums(genus_500_rare) == 0)
+
+any(taxa_sums(phylum_5000_rare) == 0)
+any(taxa_sums(class_5000_rare) == 0)
+any(taxa_sums(order_5000_rare) == 0)
+any(taxa_sums(family_5000_rare) == 0)
+any(taxa_sums(genus_5000_rare) == 0)
+
+
+######################
+###Ordinations PCOA###
+######################
+
+##phylum
+ordu_500_phylum_bray_pcoa = ordinate(phylum_500_rare, "PCoA", "bray", weighted=FALSE)
+ordu_500_phylum_wunifrac_pcoa = ordinate(phylum_500_rare, "PCoA", "unifrac", weighted = TRUE)
+ordu_5000_phylum_bray_pcoa = ordinate(phylum_5000_rare, "PCoA", "bray", weighted=FALSE)
+ordu_5000_phylum_wunifrac_pcoa = ordinate(phylum_5000_rare, "PCoA", "unifrac", weighted = TRUE)
+
+##class
+ordu_500_class_bray_pcoa = ordinate(class_500_rare, "PCoA", "bray", weighted=FALSE)
+ordu_500_class_wunifrac_pcoa = ordinate(class_500_rare, "PCoA", "unifrac", weighted = TRUE)
+ordu_5000_class_bray_pcoa = ordinate(class_5000_rare, "PCoA", "bray", weighted=FALSE)
+ordu_5000_class_wunifrac_pcoa = ordinate(class_5000_rare, "PCoA", "unifrac", weighted = TRUE)
+
+##order
+ordu_500_order_bray_pcoa = ordinate(order_500_rare, "PCoA", "bray", weighted=FALSE)
+ordu_500_order_wunifrac_pcoa = ordinate(order_500_rare, "PCoA", "unifrac", weighted = TRUE)
+ordu_5000_order_bray_pcoa = ordinate(order_5000_rare, "PCoA", "bray", weighted=FALSE)
+ordu_5000_order_wunifrac_pcoa = ordinate(order_5000_rare, "PCoA", "unifrac", weighted = TRUE)
+
+##family
+ordu_500_family_bray_pcoa = ordinate(family_500_rare, "PCoA", "bray", weighted=FALSE)
+ordu_500_family_wunifrac_pcoa = ordinate(family_500_rare, "PCoA", "unifrac", weighted = TRUE)
+ordu_5000_family_bray_pcoa = ordinate(family_5000_rare, "PCoA", "bray", weighted=FALSE)
+ordu_5000_family_wunifrac_pcoa = ordinate(family_5000_rare, "PCoA", "unifrac", weighted = TRUE)
+
+##genus
+ordu_500_genus_bray_pcoa = ordinate(genus_500_rare, "PCoA", "bray", weighted=FALSE)
+ordu_500_genus_wunifrac_pcoa = ordinate(genus_500_rare, "PCoA", "unifrac", weighted = TRUE)
+ordu_5000_genus_bray_pcoa = ordinate(genus_5000_rare, "PCoA", "bray", weighted=FALSE)
+ordu_5000_genus_wunifrac_pcoa = ordinate(genus_5000_rare, "PCoA", "unifrac", weighted = TRUE)
+
+##############
+###Distance###
+##############
+
+###using phyloseq::distance, could also use ape::pcoa
+##phylum
+dist_500_phylum_bray = phyloseq::distance(phylum_500_rare, method = "bray")
+dist_500_phylum_wunifrac = phyloseq::distance(phylum_500_rare, method = "wunifrac")
+dist_5000_phylum_bray = phyloseq::distance(phylum_5000_rare, method = "bray")
+dist_5000_phylum_wunifrac = phyloseq::distance(phylum_5000_rare, method = "wunifrac")
+
+##class
+dist_500_class_bray = phyloseq::distance(class_500_rare, method = "bray")
+dist_500_class_wunifrac = phyloseq::distance(class_500_rare, method = "wunifrac")
+dist_5000_class_bray = phyloseq::distance(class_5000_rare, method = "bray")
+dist_5000_class_wunifrac = phyloseq::distance(class_5000_rare, method = "wunifrac")
+
+##order
+dist_500_order_bray = phyloseq::distance(order_500_rare, method = "bray")
+dist_500_order_wunifrac = phyloseq::distance(order_500_rare, method = "wunifrac")
+dist_5000_order_bray = phyloseq::distance(order_5000_rare, method = "bray")
+dist_5000_order_wunifrac = phyloseq::distance(order_5000_rare, method = "wunifrac")
+
+##family
+dist_500_family_bray = phyloseq::distance(family_500_rare, method = "bray")
+dist_500_family_wunifrac = phyloseq::distance(family_500_rare, method = "wunifrac")
+dist_5000_family_bray = phyloseq::distance(family_5000_rare, method = "bray")
+dist_5000_family_wunifrac = phyloseq::distance(family_5000_rare, method = "wunifrac")
+
+##genus
+dist_500_genus_bray = phyloseq::distance(genus_500_rare, method = "bray")
+dist_500_genus_wunifrac = phyloseq::distance(genus_500_rare, method = "wunifrac")
+dist_5000_genus_bray = phyloseq::distance(genus_5000_rare, method = "bray")
+dist_5000_genus_wunifrac = phyloseq::distance(genus_5000_rare, method = "wunifrac")
+
+
+######################
+###Ordinations NMDS###
+######################
+
+##phylum
+ordu_500_phylum_bray_NMDS = vegan::metaMDS(dist_500_phylum_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_500_phylum_wunifrac_NMDS = vegan::metaMDS(dist_500_phylum_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_phylum_bray_NMDS = vegan::metaMDS(dist_5000_phylum_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_phylum_wunifrac_NMDS = vegan::metaMDS(dist_5000_phylum_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+
+##class
+ordu_500_class_bray_NMDS = vegan::metaMDS(dist_500_class_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_500_class_wunifrac_NMDS = vegan::metaMDS(dist_500_class_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_class_bray_NMDS = vegan::metaMDS(dist_5000_class_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_class_wunifrac_NMDS = vegan::metaMDS(dist_5000_class_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+
+##order
+ordu_500_order_bray_NMDS = vegan::metaMDS(dist_500_order_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_500_order_wunifrac_NMDS = vegan::metaMDS(dist_500_order_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_order_bray_NMDS = vegan::metaMDS(dist_5000_order_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_order_wunifrac_NMDS = vegan::metaMDS(dist_5000_order_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+
+##family
+ordu_500_family_bray_NMDS = vegan::metaMDS(dist_500_family_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_500_family_wunifrac_NMDS = ovegan::metaMDS(dist_500_family_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_family_bray_NMDS = vegan::metaMDS(dist_5000_family_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_family_wunifrac_NMDS = vegan::metaMDS(dist_5000_family_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+
+##genus
+ordu_500_genus_bray_NMDS = vegan::metaMDS(dist_500_genus_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_500_genus_wunifrac_NMDS = vegan::metaMDS(dist_500_genus_wunifrac, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_genus_bray_NMDS = vegan::metaMDS(dist_5000_genus_bray, k = 4, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+ordu_5000_genus_wunifrac_NMDS1 = vegan::metaMDS(dist_5000_genus_wunifrac, k = 1, maxit = 999, try=10, trymax = 500, wascores = TRUE)
+
+
+##############
+###METADATA###
+##############
+
+###get metadata for each phyloseq object (500, 10000)
+meta_500_phylum <- as(sample_data(phylum_500_rare), "data.frame")
+meta_5000_phylum <- as(sample_data(phylum_5000_rare), "data.frame")
+
+meta_500_class <- as(sample_data(class_500_rare), "data.frame")
+meta_5000_class <- as(sample_data(class_5000_rare), "data.frame")
+
+meta_500_order <- as(sample_data(order_500_rare), "data.frame")
+meta_5000_order <- as(sample_data(order_5000_rare), "data.frame")
+
+meta_500_family <- as(sample_data(family_500_rare), "data.frame")
+meta_5000_family <- as(sample_data(family_5000_rare), "data.frame")
+
+meta_500_genus <- as(sample_data(genus_500_rare), "data.frame")
+meta_5000_genus <- as(sample_data(genus_5000_rare), "data.frame")
+
+
+
+
+#####################
+###plot ordination###
+#####################
+###plot <- plot_ordination(PHYLO_OBJECT, DISTANCE MEASURES, COLOR = variable)
+Phylo_object <- genus_500_rare
+Distance_Measure <-ordu_500_genus_bray_NMDS
+Color_Var <- "species"
+
+plot_bray <- plot_ordination(Phylo_object, Distance_Measure, color = Color_Var) +
+  stat_ellipse()
+plot_bray
+
+
+stressplot(ordu_500_genus_wunifrac_NMDS)
+
+plot(ordu_500_genus_wunifrac_NMDS)
+
+
+
+############
+###ANOSIM###
+############
+
+
+#################
+###ANOSIM_PCOA###
+#################
+###Year, species, age, sex, 
+
+#dataframe for output
+anosim_df_all <- data.frame(R=NA, P=NA, name=NA)
+
+############
+###PHYLUM###
+############
+
+###Year###
+anosim_phylum_500_bray_year <- anosim(dist_500_phylum_bray, meta_500_phylum$Year, permutations = 9999)
+P<- anosim_phylum_500_bray_year$signif
+R<-anosim_phylum_500_bray_year$statistic
+name<-"anosim_phylum_500_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_bray_year <- anosim(dist_5000_phylum_bray, meta_5000_phylum$Year, permutations = 9999)
+P<- anosim_phylum_5000_bray_year$signif
+R<-anosim_phylum_5000_bray_year$statistic
+name<-"anosim_phylum_5000_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_500_wunifrac_year <- anosim(dist_500_phylum_wunifrac, meta_500_phylum$Year, permutations = 9999)
+P<- anosim_phylum_500_wunifrac_year$signif
+R<-anosim_phylum_500_wunifrac_year$statistic
+name<-"anosim_phylum_500_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_wunifrac_year <- anosim(dist_5000_phylum_wunifrac, meta_5000_phylum$Year, permutations = 9999)
+P<- anosim_phylum_5000_wunifrac_year$signif
+R<-anosim_phylum_5000_wunifrac_year$statistic
+name<-"anosim_phylum_5000_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Season###
+anosim_phylum_500_bray_season <- anosim(dist_500_phylum_bray, meta_500_phylum$Season, permutations = 9999)
+P<- anosim_phylum_500_bray_season$signif
+R<-anosim_phylum_500_bray_season$statistic
+name<-"anosim_phylum_500_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_bray_season <- anosim(dist_5000_phylum_bray, meta_5000_phylum$Season, permutations = 9999)
+P<- anosim_phylum_5000_bray_season$signif
+R<-anosim_phylum_5000_bray_season$statistic
+name<-"anosim_phylum_5000_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_500_wunifrac_season <- anosim(dist_500_phylum_wunifrac, meta_500_phylum$Season, permutations = 9999)
+P<- anosim_phylum_500_wunifrac_season$signif
+R<-anosim_phylum_500_wunifrac_season$statistic
+name<-"anosim_phylum_500_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_wunifrac_season <- anosim(dist_5000_phylum_wunifrac, meta_5000_phylum$Season, permutations = 9999)
+P<- anosim_phylum_5000_wunifrac_season$signif
+R<-anosim_phylum_5000_wunifrac_season$statistic
+name<-"anosim_phylum_5000_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Species###
+anosim_phylum_500_bray_species <- anosim(dist_500_phylum_bray, meta_500_phylum$species, permutations = 9999)
+P<- anosim_phylum_500_bray_species$signif
+R<-anosim_phylum_500_bray_species$statistic
+name<-"anosim_phylum_500_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_bray_species <- anosim(dist_5000_phylum_bray, meta_5000_phylum$species, permutations = 9999)
+P<- anosim_phylum_5000_bray_species$signif
+R<-anosim_phylum_5000_bray_species$statistic
+name<-"anosim_phylum_5000_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_500_wunifrac_species <- anosim(dist_500_phylum_wunifrac, meta_500_phylum$species, permutations = 9999)
+P<- anosim_phylum_500_wunifrac_species$signif
+R<-anosim_phylum_500_wunifrac_species$statistic
+name<-"anosim_phylum_500_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_phylum_5000_wunifrac_species <- anosim(dist_5000_phylum_wunifrac, meta_5000_phylum$species, permutations = 9999)
+P<- anosim_phylum_5000_wunifrac_species$signif
+R<-anosim_phylum_5000_wunifrac_species$statistic
+name<-"anosim_phylum_5000_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+
+###SEX
+phylum_500_rare_sex <- subset_samples(phylum_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_phylum_bray_sex = phyloseq::distance(phylum_500_rare_sex, method = "bray") ##get distances
+meta_500_phylum_sex <- meta_500_phylum[!is.na(meta_500_phylum$Sex), ] ##remove NAs from metadatta
+anosim_phylum_500_bray_sex <- anosim(dist_500_phylum_bray_sex, meta_500_phylum_sex$Sex, permutations = 9999)
+P<- anosim_phylum_500_bray_sex$signif
+R<-anosim_phylum_500_bray_sex$statistic
+name<-"anosim_phylum_500_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+phylum_5000_rare_sex <- subset_samples(phylum_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_phylum_bray_sex = phyloseq::distance(phylum_5000_rare_sex, method = "bray") ##get distances
+meta_5000_phylum_sex <- meta_5000_phylum[!is.na(meta_5000_phylum$Sex), ] ##remove NAs from metadatta
+anosim_phylum_5000_bray_sex <- anosim(dist_5000_phylum_bray_sex, meta_5000_phylum_sex$Sex, permutations = 9999)
+P<- anosim_phylum_5000_bray_sex$signif
+R<-anosim_phylum_5000_bray_sex$statistic
+name<-"anosim_phylum_5000_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+phylum_500_rare_sex <- subset_samples(phylum_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_phylum_wunifrac_sex = phyloseq::distance(phylum_500_rare_sex, method = "wunifrac") ##get distances
+meta_500_phylum_sex <- meta_500_phylum[!is.na(meta_500_phylum$Sex), ] ##remove NAs from metadatta
+anosim_phylum_500_wunifrac_sex <- anosim(dist_500_phylum_wunifrac_sex, meta_500_phylum_sex$Sex, permutations = 9999)
+P<- anosim_phylum_500_wunifrac_sex$signif
+R<-anosim_phylum_500_wunifrac_sex$statistic
+name<-"anosim_phylum_500_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+phylum_5000_rare_sex <- subset_samples(phylum_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_phylum_wunifrac_sex = phyloseq::distance(phylum_5000_rare_sex, method = "wunifrac") ##get distances
+meta_5000_phylum_sex <- meta_5000_phylum[!is.na(meta_5000_phylum$Sex), ] ##remove NAs from metadatta
+anosim_phylum_5000_wunifrac_sex <- anosim(dist_5000_phylum_wunifrac_sex, meta_5000_phylum_sex$Sex, permutations = 9999)
+P<- anosim_phylum_5000_wunifrac_sex$signif
+R<-anosim_phylum_5000_wunifrac_sex$statistic
+name<-"anosim_phylum_5000_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+###AGE###
+phylum_500_rare_Skull <- subset_samples(phylum_500_rare, Skull != "NA")  ##subset phyloseq object
+phylum_500_rare_Skull <- subset_samples(phylum_500_rare_Skull, Season == "Autumn")
+phylum_500_rare_Skull <- subset_samples(phylum_500_rare_Skull, Season != "")
+dist_500_phylum_bray_Skull = phyloseq::distance(phylum_500_rare_Skull, method = "bray") ##get distances
+meta_500_phylum_Skull <- meta_500_phylum[!is.na(meta_500_phylum$Skull), ] ##remove NAs from metadatta
+meta_500_phylum_Skull <- filter(meta_500_phylum_Skull, Season == "Autumn")
+anosim_phylum_500_bray_Skull <- anosim(dist_500_phylum_bray_Skull, meta_500_phylum_Skull$Skull, permutations = 9999)
+P<- anosim_phylum_500_bray_Skull$signif
+R<-anosim_phylum_500_bray_Skull$statistic
+name<-"anosim_phylum_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+phylum_5000_rare_Skull <- subset_samples(phylum_5000_rare, Skull != "NA")  ##subset phyloseq object
+phylum_5000_rare_Skull <- subset_samples(phylum_5000_rare_Skull, Season == "Autumn")
+dist_5000_phylum_bray_Skull = phyloseq::distance(phylum_5000_rare_Skull, method = "bray") ##get distances
+meta_5000_phylum_Skull <- meta_5000_phylum[!is.na(meta_5000_phylum$Skull), ] ##remove NAs from metadatta
+meta_5000_phylum_Skull <- filter(meta_5000_phylum_Skull, Season == "Autumn")
+anosim_phylum_5000_bray_Skull <- anosim(dist_5000_phylum_bray_Skull, meta_5000_phylum_Skull$Skull, permutations = 9999)
+P<- anosim_phylum_5000_bray_Skull$signif
+R<-anosim_phylum_5000_bray_Skull$statistic
+name<-"anosim_phylum_5000_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+dist_500_phylum_wunifrac_Skull = phyloseq::distance(phylum_500_rare_Skull, method = "wunifrac") ##get distances
+meta_500_phylum_Skull <- meta_500_phylum[!is.na(meta_500_phylum$Skull), ] ##remove NAs from metadatta
+meta_500_phylum_Skull <- filter(meta_500_phylum_Skull, Season == "Autumn")
+anosim_phylum_500_wunifrac_Skull <- anosim(dist_500_phylum_wunifrac_Skull, meta_500_phylum_Skull$Skull, permutations = 9999)
+P<- anosim_phylum_500_wunifrac_Skull$signif
+R<-anosim_phylum_500_wunifrac_Skull$statistic
+name<-"anosim_phylum_500_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_5000_phylum_wunifrac_Skull = phyloseq::distance(phylum_5000_rare_Skull, method = "wunifrac") ##get distances
+meta_5000_phylum_Skull <- meta_5000_phylum[!is.na(meta_5000_phylum$Skull), ] ##remove NAs from metadatta
+meta_5000_phylum_Skull <- filter(meta_5000_phylum_Skull, Season == "Autumn")
+anosim_phylum_5000_wunifrac_Skull <- anosim(dist_5000_phylum_wunifrac_Skull, meta_5000_phylum_Skull$Skull, permutations = 9999)
+P<- anosim_phylum_5000_wunifrac_Skull$signif
+R<-anosim_phylum_5000_wunifrac_Skull$statistic
+name<-"anosim_phylum_5000_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+library(beepr)
+beep("mario")
+
+############
+###class###
+############
+
+###Year###
+anosim_class_500_bray_year <- anosim(dist_500_class_bray, meta_500_class$Year, permutations = 9999)
+P<- anosim_class_500_bray_year$signif
+R<-anosim_class_500_bray_year$statistic
+name<-"anosim_class_500_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_bray_year <- anosim(dist_5000_class_bray, meta_5000_class$Year, permutations = 9999)
+P<- anosim_class_5000_bray_year$signif
+R<-anosim_class_5000_bray_year$statistic
+name<-"anosim_class_5000_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_500_wunifrac_year <- anosim(dist_500_class_wunifrac, meta_500_class$Year, permutations = 9999)
+P<- anosim_class_500_wunifrac_year$signif
+R<-anosim_class_500_wunifrac_year$statistic
+name<-"anosim_class_500_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_wunifrac_year <- anosim(dist_5000_class_wunifrac, meta_5000_class$Year, permutations = 9999)
+P<- anosim_class_5000_wunifrac_year$signif
+R<-anosim_class_5000_wunifrac_year$statistic
+name<-"anosim_class_5000_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Season###
+anosim_class_500_bray_season <- anosim(dist_500_class_bray, meta_500_class$Season, permutations = 9999)
+P<- anosim_class_500_bray_season$signif
+R<-anosim_class_500_bray_season$statistic
+name<-"anosim_class_500_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_bray_season <- anosim(dist_5000_class_bray, meta_5000_class$Season, permutations = 9999)
+P<- anosim_class_5000_bray_season$signif
+R<-anosim_class_5000_bray_season$statistic
+name<-"anosim_class_5000_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_500_wunifrac_season <- anosim(dist_500_class_wunifrac, meta_500_class$Season, permutations = 9999)
+P<- anosim_class_500_wunifrac_season$signif
+R<-anosim_class_500_wunifrac_season$statistic
+name<-"anosim_class_500_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_wunifrac_season <- anosim(dist_5000_class_wunifrac, meta_5000_class$Season, permutations = 9999)
+P<- anosim_class_5000_wunifrac_season$signif
+R<-anosim_class_5000_wunifrac_season$statistic
+name<-"anosim_class_5000_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Species###
+anosim_class_500_bray_species <- anosim(dist_500_class_bray, meta_500_class$species, permutations = 9999)
+P<- anosim_class_500_bray_species$signif
+R<-anosim_class_500_bray_species$statistic
+name<-"anosim_class_500_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_bray_species <- anosim(dist_5000_class_bray, meta_5000_class$species, permutations = 9999)
+P<- anosim_class_5000_bray_species$signif
+R<-anosim_class_5000_bray_species$statistic
+name<-"anosim_class_5000_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_500_wunifrac_species <- anosim(dist_500_class_wunifrac, meta_500_class$species, permutations = 9999)
+P<- anosim_class_500_wunifrac_species$signif
+R<-anosim_class_500_wunifrac_species$statistic
+name<-"anosim_class_500_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_class_5000_wunifrac_species <- anosim(dist_5000_class_wunifrac, meta_5000_class$species, permutations = 9999)
+P<- anosim_class_5000_wunifrac_species$signif
+R<-anosim_class_5000_wunifrac_species$statistic
+name<-"anosim_class_5000_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+
+###SEX
+class_500_rare_sex <- subset_samples(class_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_class_bray_sex = phyloseq::distance(class_500_rare_sex, method = "bray") ##get distances
+meta_500_class_sex <- meta_500_class[!is.na(meta_500_class$Sex), ] ##remove NAs from metadatta
+anosim_class_500_bray_sex <- anosim(dist_500_class_bray_sex, meta_500_class_sex$Sex, permutations = 9999)
+P<- anosim_class_500_bray_sex$signif
+R<-anosim_class_500_bray_sex$statistic
+name<-"anosim_class_500_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+class_5000_rare_sex <- subset_samples(class_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_class_bray_sex = phyloseq::distance(class_5000_rare_sex, method = "bray") ##get distances
+meta_5000_class_sex <- meta_5000_class[!is.na(meta_5000_class$Sex), ] ##remove NAs from metadatta
+anosim_class_5000_bray_sex <- anosim(dist_5000_class_bray_sex, meta_5000_class_sex$Sex, permutations = 9999)
+P<- anosim_class_5000_bray_sex$signif
+R<-anosim_class_5000_bray_sex$statistic
+name<-"anosim_class_5000_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+class_500_rare_sex <- subset_samples(class_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_class_wunifrac_sex = phyloseq::distance(class_500_rare_sex, method = "wunifrac") ##get distances
+meta_500_class_sex <- meta_500_class[!is.na(meta_500_class$Sex), ] ##remove NAs from metadatta
+anosim_class_500_wunifrac_sex <- anosim(dist_500_class_wunifrac_sex, meta_500_class_sex$Sex, permutations = 9999)
+P<- anosim_class_500_wunifrac_sex$signif
+R<-anosim_class_500_wunifrac_sex$statistic
+name<-"anosim_class_500_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+class_5000_rare_sex <- subset_samples(class_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_class_wunifrac_sex = phyloseq::distance(class_5000_rare_sex, method = "wunifrac") ##get distances
+meta_5000_class_sex <- meta_5000_class[!is.na(meta_5000_class$Sex), ] ##remove NAs from metadatta
+anosim_class_5000_wunifrac_sex <- anosim(dist_5000_class_wunifrac_sex, meta_5000_class_sex$Sex, permutations = 9999)
+P<- anosim_class_5000_wunifrac_sex$signif
+R<-anosim_class_5000_wunifrac_sex$statistic
+name<-"anosim_class_5000_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+###AGE###
+class_500_rare_Skull <- subset_samples(class_500_rare, Skull != "NA")  ##subset phyloseq object
+class_500_rare_Skull <- subset_samples(class_500_rare_Skull, Season == "Autumn")
+dist_500_class_bray_Skull = phyloseq::distance(class_500_rare_Skull, method = "bray") ##get distances
+meta_500_class_Skull <- meta_500_class[!is.na(meta_500_class$Skull), ] ##remove NAs from metadatta
+meta_500_class_Skull <- filter(meta_500_class_Skull, Season == "Autumn")
+anosim_class_500_bray_Skull <- anosim(dist_500_class_bray_Skull, meta_500_class_Skull$Skull, permutations = 9999)
+P<- anosim_class_500_bray_Skull$signif
+R<-anosim_class_500_bray_Skull$statistic
+name<-"anosim_class_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+class_5000_rare_Skull <- subset_samples(class_5000_rare, Skull != "NA")  ##subset phyloseq object
+class_5000_rare_Skull <- subset_samples(class_5000_rare_Skull, Season == "Autumn")
+dist_5000_class_bray_Skull = phyloseq::distance(class_5000_rare_Skull, method = "bray") ##get distances
+meta_5000_class_Skull <- meta_5000_class[!is.na(meta_5000_class$Skull), ] ##remove NAs from metadatta
+meta_5000_class_Skull <- filter(meta_5000_class_Skull, Season == "Autumn")
+anosim_class_5000_bray_Skull <- anosim(dist_5000_class_bray_Skull, meta_5000_class_Skull$Skull, permutations = 9999)
+P<- anosim_class_5000_bray_Skull$signif
+R<-anosim_class_5000_bray_Skull$statistic
+name<-"anosim_class_5000_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_500_class_wunifrac_Skull = phyloseq::distance(class_500_rare_Skull, method = "wunifrac") ##get distances
+meta_500_class_Skull <- meta_500_class[!is.na(meta_500_class$Skull), ] ##remove NAs from metadatta
+meta_500_class_Skull <- filter(meta_500_class_Skull, Season == "Autumn")
+anosim_class_500_wunifrac_Skull <- anosim(dist_500_class_wunifrac_Skull, meta_500_class_Skull$Skull, permutations = 9999)
+P<- anosim_class_500_wunifrac_Skull$signif
+R<-anosim_class_500_wunifrac_Skull$statistic
+name<-"anosim_class_500_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_5000_class_wunifrac_Skull = phyloseq::distance(class_5000_rare_Skull, method = "wunifrac") ##get distances
+meta_5000_class_Skull <- meta_5000_class[!is.na(meta_5000_class$Skull), ] ##remove NAs from metadatta
+meta_5000_class_Skull <- filter(meta_5000_class_Skull, Season == "Autumn")
+anosim_class_5000_wunifrac_Skull <- anosim(dist_5000_class_wunifrac_Skull, meta_5000_class_Skull$Skull, permutations = 9999)
+P<- anosim_class_5000_wunifrac_Skull$signif
+R<-anosim_class_5000_wunifrac_Skull$statistic
+name<-"anosim_class_5000_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+library(beepr)
+beep("mario")
+
+############
+###order###
+############
+
+###Year###
+anosim_order_500_bray_year <- anosim(dist_500_order_bray, meta_500_order$Year, permutations = 9999)
+P<- anosim_order_500_bray_year$signif
+R<-anosim_order_500_bray_year$statistic
+name<-"anosim_order_500_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_bray_year <- anosim(dist_5000_order_bray, meta_5000_order$Year, permutations = 9999)
+P<- anosim_order_5000_bray_year$signif
+R<-anosim_order_5000_bray_year$statistic
+name<-"anosim_order_5000_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_500_wunifrac_year <- anosim(dist_500_order_wunifrac, meta_500_order$Year, permutations = 9999)
+P<- anosim_order_500_wunifrac_year$signif
+R<-anosim_order_500_wunifrac_year$statistic
+name<-"anosim_order_500_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_wunifrac_year <- anosim(dist_5000_order_wunifrac, meta_5000_order$Year, permutations = 9999)
+P<- anosim_order_5000_wunifrac_year$signif
+R<-anosim_order_5000_wunifrac_year$statistic
+name<-"anosim_order_5000_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Season###
+anosim_order_500_bray_season <- anosim(dist_500_order_bray, meta_500_order$Season, permutations = 9999)
+P<- anosim_order_500_bray_season$signif
+R<-anosim_order_500_bray_season$statistic
+name<-"anosim_order_500_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_bray_season <- anosim(dist_5000_order_bray, meta_5000_order$Season, permutations = 9999)
+P<- anosim_order_5000_bray_season$signif
+R<-anosim_order_5000_bray_season$statistic
+name<-"anosim_order_5000_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_500_wunifrac_season <- anosim(dist_500_order_wunifrac, meta_500_order$Season, permutations = 9999)
+P<- anosim_order_500_wunifrac_season$signif
+R<-anosim_order_500_wunifrac_season$statistic
+name<-"anosim_order_500_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_wunifrac_season <- anosim(dist_5000_order_wunifrac, meta_5000_order$Season, permutations = 9999)
+P<- anosim_order_5000_wunifrac_season$signif
+R<-anosim_order_5000_wunifrac_season$statistic
+name<-"anosim_order_5000_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Species###
+anosim_order_500_bray_species <- anosim(dist_500_order_bray, meta_500_order$species, permutations = 9999)
+P<- anosim_order_500_bray_species$signif
+R<-anosim_order_500_bray_species$statistic
+name<-"anosim_order_500_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_bray_species <- anosim(dist_5000_order_bray, meta_5000_order$species, permutations = 9999)
+P<- anosim_order_5000_bray_species$signif
+R<-anosim_order_5000_bray_species$statistic
+name<-"anosim_order_5000_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_500_wunifrac_species <- anosim(dist_500_order_wunifrac, meta_500_order$species, permutations = 9999)
+P<- anosim_order_500_wunifrac_species$signif
+R<-anosim_order_500_wunifrac_species$statistic
+name<-"anosim_order_500_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_order_5000_wunifrac_species <- anosim(dist_5000_order_wunifrac, meta_5000_order$species, permutations = 9999)
+P<- anosim_order_5000_wunifrac_species$signif
+R<-anosim_order_5000_wunifrac_species$statistic
+name<-"anosim_order_5000_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+
+###SEX
+order_500_rare_sex <- subset_samples(order_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_order_bray_sex = phyloseq::distance(order_500_rare_sex, method = "bray") ##get distances
+meta_500_order_sex <- meta_500_order[!is.na(meta_500_order$Sex), ] ##remove NAs from metadatta
+anosim_order_500_bray_sex <- anosim(dist_500_order_bray_sex, meta_500_order_sex$Sex, permutations = 9999)
+P<- anosim_order_500_bray_sex$signif
+R<-anosim_order_500_bray_sex$statistic
+name<-"anosim_order_500_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+order_5000_rare_sex <- subset_samples(order_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_order_bray_sex = phyloseq::distance(order_5000_rare_sex, method = "bray") ##get distances
+meta_5000_order_sex <- meta_5000_order[!is.na(meta_5000_order$Sex), ] ##remove NAs from metadatta
+anosim_order_5000_bray_sex <- anosim(dist_5000_order_bray_sex, meta_5000_order_sex$Sex, permutations = 9999)
+P<- anosim_order_5000_bray_sex$signif
+R<-anosim_order_5000_bray_sex$statistic
+name<-"anosim_order_5000_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+order_500_rare_sex <- subset_samples(order_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_order_wunifrac_sex = phyloseq::distance(order_500_rare_sex, method = "wunifrac") ##get distances
+meta_500_order_sex <- meta_500_order[!is.na(meta_500_order$Sex), ] ##remove NAs from metadatta
+anosim_order_500_wunifrac_sex <- anosim(dist_500_order_wunifrac_sex, meta_500_order_sex$Sex, permutations = 9999)
+P<- anosim_order_500_wunifrac_sex$signif
+R<-anosim_order_500_wunifrac_sex$statistic
+name<-"anosim_order_500_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+order_5000_rare_sex <- subset_samples(order_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_order_wunifrac_sex = phyloseq::distance(order_5000_rare_sex, method = "wunifrac") ##get distances
+meta_5000_order_sex <- meta_5000_order[!is.na(meta_5000_order$Sex), ] ##remove NAs from metadatta
+anosim_order_5000_wunifrac_sex <- anosim(dist_5000_order_wunifrac_sex, meta_5000_order_sex$Sex, permutations = 9999)
+P<- anosim_order_5000_wunifrac_sex$signif
+R<-anosim_order_5000_wunifrac_sex$statistic
+name<-"anosim_order_5000_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+###AGE###
+order_500_rare_Skull <- subset_samples(order_500_rare, Skull != "NA")  ##subset phyloseq object
+order_500_rare_Skull <- subset_samples(order_500_rare_Skull, Season == "Autumn")
+dist_500_order_bray_Skull = phyloseq::distance(order_500_rare_Skull, method = "bray") ##get distances
+meta_500_order_Skull <- meta_500_order[!is.na(meta_500_order$Skull), ] ##remove NAs from metadatta
+meta_500_order_Skull <- filter(meta_500_order_Skull, Season == "Autumn")
+anosim_order_500_bray_Skull <- anosim(dist_500_order_bray_Skull, meta_500_order_Skull$Skull, permutations = 9999)
+P<- anosim_order_500_bray_Skull$signif
+R<-anosim_order_500_bray_Skull$statistic
+name<-"anosim_order_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+order_5000_rare_Skull <- subset_samples(order_5000_rare, Skull != "NA")  ##subset phyloseq object
+order_5000_rare_Skull <- subset_samples(order_5000_rare_Skull, Season == "Autumn")
+dist_5000_order_bray_Skull = phyloseq::distance(order_5000_rare_Skull, method = "bray") ##get distances
+meta_5000_order_Skull <- meta_5000_order[!is.na(meta_5000_order$Skull), ] ##remove NAs from metadatta
+meta_5000_order_Skull <- filter(meta_5000_order_Skull, Season == "Autumn")
+anosim_order_5000_bray_Skull <- anosim(dist_5000_order_bray_Skull, meta_5000_order_Skull$Skull, permutations = 9999)
+P<- anosim_order_5000_bray_Skull$signif
+R<-anosim_order_5000_bray_Skull$statistic
+name<-"anosim_order_5000_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_500_order_wunifrac_Skull = phyloseq::distance(order_500_rare_Skull, method = "wunifrac") ##get distances
+meta_500_order_Skull <- meta_500_order[!is.na(meta_500_order$Skull), ] ##remove NAs from metadatta
+meta_500_order_Skull <- filter(meta_500_order_Skull, Season == "Autumn")
+anosim_order_500_wunifrac_Skull <- anosim(dist_500_order_wunifrac_Skull, meta_500_order_Skull$Skull, permutations = 9999)
+P<- anosim_order_500_wunifrac_Skull$signif
+R<-anosim_order_500_wunifrac_Skull$statistic
+name<-"anosim_order_500_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_5000_order_wunifrac_Skull = phyloseq::distance(order_5000_rare_Skull, method = "wunifrac") ##get distances
+meta_5000_order_Skull <- meta_5000_order[!is.na(meta_5000_order$Skull), ] ##remove NAs from metadatta
+meta_5000_order_Skull <- filter(meta_5000_order_Skull, Season == "Autumn")
+anosim_order_5000_wunifrac_Skull <- anosim(dist_5000_order_wunifrac_Skull, meta_5000_order_Skull$Skull, permutations = 9999)
+P<- anosim_order_5000_wunifrac_Skull$signif
+R<-anosim_order_5000_wunifrac_Skull$statistic
+name<-"anosim_order_5000_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+beep("mario")
+
+
+############
+###family###
+############
+
+###Year###
+anosim_family_500_bray_year <- anosim(dist_500_family_bray, meta_500_family$Year, permutations = 9999)
+P<- anosim_family_500_bray_year$signif
+R<-anosim_family_500_bray_year$statistic
+name<-"anosim_family_500_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_bray_year <- anosim(dist_5000_family_bray, meta_5000_family$Year, permutations = 9999)
+P<- anosim_family_5000_bray_year$signif
+R<-anosim_family_5000_bray_year$statistic
+name<-"anosim_family_5000_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_500_wunifrac_year <- anosim(dist_500_family_wunifrac, meta_500_family$Year, permutations = 9999)
+P<- anosim_family_500_wunifrac_year$signif
+R<-anosim_family_500_wunifrac_year$statistic
+name<-"anosim_family_500_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_wunifrac_year <- anosim(dist_5000_family_wunifrac, meta_5000_family$Year, permutations = 9999)
+P<- anosim_family_5000_wunifrac_year$signif
+R<-anosim_family_5000_wunifrac_year$statistic
+name<-"anosim_family_5000_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Season###
+anosim_family_500_bray_season <- anosim(dist_500_family_bray, meta_500_family$Season, permutations = 9999)
+P<- anosim_family_500_bray_season$signif
+R<-anosim_family_500_bray_season$statistic
+name<-"anosim_family_500_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_bray_season <- anosim(dist_5000_family_bray, meta_5000_family$Season, permutations = 9999)
+P<- anosim_family_5000_bray_season$signif
+R<-anosim_family_5000_bray_season$statistic
+name<-"anosim_family_5000_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_500_wunifrac_season <- anosim(dist_500_family_wunifrac, meta_500_family$Season, permutations = 9999)
+P<- anosim_family_500_wunifrac_season$signif
+R<-anosim_family_500_wunifrac_season$statistic
+name<-"anosim_family_500_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_wunifrac_season <- anosim(dist_5000_family_wunifrac, meta_5000_family$Season, permutations = 9999)
+P<- anosim_family_5000_wunifrac_season$signif
+R<-anosim_family_5000_wunifrac_season$statistic
+name<-"anosim_family_5000_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Species###
+anosim_family_500_bray_species <- anosim(dist_500_family_bray, meta_500_family$species, permutations = 9999)
+P<- anosim_family_500_bray_species$signif
+R<-anosim_family_500_bray_species$statistic
+name<-"anosim_family_500_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_bray_species <- anosim(dist_5000_family_bray, meta_5000_family$species, permutations = 9999)
+P<- anosim_family_5000_bray_species$signif
+R<-anosim_family_5000_bray_species$statistic
+name<-"anosim_family_5000_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_500_wunifrac_species <- anosim(dist_500_family_wunifrac, meta_500_family$species, permutations = 9999)
+P<- anosim_family_500_wunifrac_species$signif
+R<-anosim_family_500_wunifrac_species$statistic
+name<-"anosim_family_500_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_family_5000_wunifrac_species <- anosim(dist_5000_family_wunifrac, meta_5000_family$species, permutations = 9999)
+P<- anosim_family_5000_wunifrac_species$signif
+R<-anosim_family_5000_wunifrac_species$statistic
+name<-"anosim_family_5000_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+
+###SEX
+family_500_rare_sex <- subset_samples(family_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_family_bray_sex = phyloseq::distance(family_500_rare_sex, method = "bray") ##get distances
+meta_500_family_sex <- meta_500_family[!is.na(meta_500_family$Sex), ] ##remove NAs from metadatta
+anosim_family_500_bray_sex <- anosim(dist_500_family_bray_sex, meta_500_family_sex$Sex, permutations = 9999)
+P<- anosim_family_500_bray_sex$signif
+R<-anosim_family_500_bray_sex$statistic
+name<-"anosim_family_500_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+family_5000_rare_sex <- subset_samples(family_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_family_bray_sex = phyloseq::distance(family_5000_rare_sex, method = "bray") ##get distances
+meta_5000_family_sex <- meta_5000_family[!is.na(meta_5000_family$Sex), ] ##remove NAs from metadatta
+anosim_family_5000_bray_sex <- anosim(dist_5000_family_bray_sex, meta_5000_family_sex$Sex, permutations = 9999)
+P<- anosim_family_5000_bray_sex$signif
+R<-anosim_family_5000_bray_sex$statistic
+name<-"anosim_family_5000_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+family_500_rare_sex <- subset_samples(family_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_family_wunifrac_sex = phyloseq::distance(family_500_rare_sex, method = "wunifrac") ##get distances
+meta_500_family_sex <- meta_500_family[!is.na(meta_500_family$Sex), ] ##remove NAs from metadatta
+anosim_family_500_wunifrac_sex <- anosim(dist_500_family_wunifrac_sex, meta_500_family_sex$Sex, permutations = 9999)
+P<- anosim_family_500_wunifrac_sex$signif
+R<-anosim_family_500_wunifrac_sex$statistic
+name<-"anosim_family_500_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+family_5000_rare_sex <- subset_samples(family_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_family_wunifrac_sex = phyloseq::distance(family_5000_rare_sex, method = "wunifrac") ##get distances
+meta_5000_family_sex <- meta_5000_family[!is.na(meta_5000_family$Sex), ] ##remove NAs from metadatta
+anosim_family_5000_wunifrac_sex <- anosim(dist_5000_family_wunifrac_sex, meta_5000_family_sex$Sex, permutations = 9999)
+P<- anosim_family_5000_wunifrac_sex$signif
+R<-anosim_family_5000_wunifrac_sex$statistic
+name<-"anosim_family_5000_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+###AGE###
+family_500_rare_Skull <- subset_samples(family_500_rare, Skull != "NA")  ##subset phyloseq object
+family_500_rare_Skull <- subset_samples(family_500_rare_Skull, Season == "Autumn")
+dist_500_family_bray_Skull = phyloseq::distance(family_500_rare_Skull, method = "bray") ##get distances
+meta_500_family_Skull <- meta_500_family[!is.na(meta_500_family$Skull), ] ##remove NAs from metadatta
+meta_500_family_Skull <- filter(meta_500_family_Skull, Season == "Autumn")
+anosim_family_500_bray_Skull <- anosim(dist_500_family_bray_Skull, meta_500_family_Skull$Skull, permutations = 9999)
+P<- anosim_family_500_bray_Skull$signif
+R<-anosim_family_500_bray_Skull$statistic
+name<-"anosim_family_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+family_5000_rare_Skull <- subset_samples(family_5000_rare, Skull != "NA")  ##subset phyloseq object
+family_5000_rare_Skull <- subset_samples(family_5000_rare_Skull, Season == "Autumn")
+dist_5000_family_bray_Skull = phyloseq::distance(family_5000_rare_Skull, method = "bray") ##get distances
+meta_5000_family_Skull <- meta_5000_family[!is.na(meta_5000_family$Skull), ] ##remove NAs from metadatta
+meta_5000_family_Skull <- filter(meta_5000_family_Skull, Season == "Autumn")
+anosim_family_5000_bray_Skull <- anosim(dist_5000_family_bray_Skull, meta_5000_family_Skull$Skull, permutations = 9999)
+P<- anosim_family_5000_bray_Skull$signif
+R<-anosim_family_5000_bray_Skull$statistic
+name<-"anosim_family_5000_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_500_family_wunifrac_Skull = phyloseq::distance(family_500_rare_Skull, method = "wunifrac") ##get distances
+meta_500_family_Skull <- meta_500_family[!is.na(meta_500_family$Skull), ] ##remove NAs from metadatta
+meta_500_family_Skull <- filter(meta_500_family_Skull, Season == "Autumn")
+anosim_family_500_wunifrac_Skull <- anosim(dist_500_family_wunifrac_Skull, meta_500_family_Skull$Skull, permutations = 9999)
+P<- anosim_family_500_wunifrac_Skull$signif
+R<-anosim_family_500_wunifrac_Skull$statistic
+name<-"anosim_family_500_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_5000_family_wunifrac_Skull = phyloseq::distance(family_5000_rare_Skull, method = "wunifrac") ##get distances
+meta_5000_family_Skull <- meta_5000_family[!is.na(meta_5000_family$Skull), ] ##remove NAs from metadatta
+meta_5000_family_Skull <- filter(meta_5000_family_Skull, Season == "Autumn")
+anosim_family_5000_wunifrac_Skull <- anosim(dist_5000_family_wunifrac_Skull, meta_5000_family_Skull$Skull, permutations = 9999)
+P<- anosim_family_5000_wunifrac_Skull$signif
+R<-anosim_family_5000_wunifrac_Skull$statistic
+name<-"anosim_family_5000_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+beep("mario")
+
+############
+###genus###
+############
+
+###Year###
+anosim_genus_500_bray_year <- anosim(dist_500_genus_bray, meta_500_genus$Year, permutations = 9999)
+P<- anosim_genus_500_bray_year$signif
+R<-anosim_genus_500_bray_year$statistic
+name<-"anosim_genus_500_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_bray_year <- anosim(dist_5000_genus_bray, meta_5000_genus$Year, permutations = 9999)
+P<- anosim_genus_5000_bray_year$signif
+R<-anosim_genus_5000_bray_year$statistic
+name<-"anosim_genus_5000_bray_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_500_wunifrac_year <- anosim(dist_500_genus_wunifrac, meta_500_genus$Year, permutations = 9999)
+P<- anosim_genus_500_wunifrac_year$signif
+R<-anosim_genus_500_wunifrac_year$statistic
+name<-"anosim_genus_500_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_wunifrac_year <- anosim(dist_5000_genus_wunifrac, meta_5000_genus$Year, permutations = 9999)
+P<- anosim_genus_5000_wunifrac_year$signif
+R<-anosim_genus_5000_wunifrac_year$statistic
+name<-"anosim_genus_5000_wunifrac_year"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Season###
+anosim_genus_500_bray_season <- anosim(dist_500_genus_bray, meta_500_genus$Season, permutations = 9999)
+P<- anosim_genus_500_bray_season$signif
+R<-anosim_genus_500_bray_season$statistic
+name<-"anosim_genus_500_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_bray_season <- anosim(dist_5000_genus_bray, meta_5000_genus$Season, permutations = 9999)
+P<- anosim_genus_5000_bray_season$signif
+R<-anosim_genus_5000_bray_season$statistic
+name<-"anosim_genus_5000_bray_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_500_wunifrac_season <- anosim(dist_500_genus_wunifrac, meta_500_genus$Season, permutations = 9999)
+P<- anosim_genus_500_wunifrac_season$signif
+R<-anosim_genus_500_wunifrac_season$statistic
+name<-"anosim_genus_500_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_wunifrac_season <- anosim(dist_5000_genus_wunifrac, meta_5000_genus$Season, permutations = 9999)
+P<- anosim_genus_5000_wunifrac_season$signif
+R<-anosim_genus_5000_wunifrac_season$statistic
+name<-"anosim_genus_5000_wunifrac_season"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+###Species###
+anosim_genus_500_bray_species <- anosim(dist_500_genus_bray, meta_500_genus$species, permutations = 9999)
+P<- anosim_genus_500_bray_species$signif
+R<-anosim_genus_500_bray_species$statistic
+name<-"anosim_genus_500_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_bray_species <- anosim(dist_5000_genus_bray, meta_5000_genus$species, permutations = 999)
+P<- anosim_genus_5000_bray_species$signif
+R<-anosim_genus_5000_bray_species$statistic
+name<-"anosim_genus_5000_bray_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_500_wunifrac_species <- anosim(dist_500_genus_wunifrac, meta_500_genus$species, permutations = 9999)
+P<- anosim_genus_500_wunifrac_species$signif
+R<-anosim_genus_500_wunifrac_species$statistic
+name<-"anosim_genus_500_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+anosim_genus_5000_wunifrac_species <- anosim(dist_5000_genus_wunifrac, meta_5000_genus$species, permutations = 9999)
+P<- anosim_genus_5000_wunifrac_species$signif
+R<-anosim_genus_5000_wunifrac_species$statistic
+name<-"anosim_genus_5000_wunifrac_species"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+
+###SEX
+genus_500_rare_sex <- subset_samples(genus_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_genus_bray_sex = phyloseq::distance(genus_500_rare_sex, method = "bray") ##get distances
+meta_500_genus_sex <- meta_500_genus[!is.na(meta_500_genus$Sex), ] ##remove NAs from metadatta
+anosim_genus_500_bray_sex <- anosim(dist_500_genus_bray_sex, meta_500_genus_sex$Sex, permutations = 9999)
+P<- anosim_genus_500_bray_sex$signif
+R<-anosim_genus_500_bray_sex$statistic
+name<-"anosim_genus_500_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+genus_5000_rare_sex <- subset_samples(genus_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_genus_bray_sex = phyloseq::distance(genus_5000_rare_sex, method = "bray") ##get distances
+meta_5000_genus_sex <- meta_5000_genus[!is.na(meta_5000_genus$Sex), ] ##remove NAs from metadatta
+anosim_genus_5000_bray_sex <- anosim(dist_5000_genus_bray_sex, meta_5000_genus_sex$Sex, permutations = 9999)
+P<- anosim_genus_5000_bray_sex$signif
+R<-anosim_genus_5000_bray_sex$statistic
+name<-"anosim_genus_5000_bray_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+genus_500_rare_sex <- subset_samples(genus_500_rare, Sex != "NA")  ##subset phyloseq object
+dist_500_genus_wunifrac_sex = phyloseq::distance(genus_500_rare_sex, method = "wunifrac") ##get distances
+meta_500_genus_sex <- meta_500_genus[!is.na(meta_500_genus$Sex), ] ##remove NAs from metadatta
+anosim_genus_500_wunifrac_sex <- anosim(dist_500_genus_wunifrac_sex, meta_500_genus_sex$Sex, permutations = 9999)
+P<- anosim_genus_500_wunifrac_sex$signif
+R<-anosim_genus_500_wunifrac_sex$statistic
+name<-"anosim_genus_500_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+genus_5000_rare_sex <- subset_samples(genus_5000_rare, Sex != "NA")  ##subset phyloseq object
+dist_5000_genus_wunifrac_sex = phyloseq::distance(genus_5000_rare_sex, method = "wunifrac") ##get distances
+meta_5000_genus_sex <- meta_5000_genus[!is.na(meta_5000_genus$Sex), ] ##remove NAs from metadatta
+anosim_genus_5000_wunifrac_sex <- anosim(dist_5000_genus_wunifrac_sex, meta_5000_genus_sex$Sex, permutations = 9999)
+P<- anosim_genus_5000_wunifrac_sex$signif
+R<-anosim_genus_5000_wunifrac_sex$statistic
+name<-"anosim_genus_5000_wunifrac_sex"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
+###AGE###
+genus_500_rare_Skull <- subset_samples(genus_500_rare, Skull != "NA")  ##subset phyloseq object
+genus_500_rare_Skull <- subset_samples(genus_500_rare_Skull, Season == "Autumn")
+dist_500_genus_bray_Skull = phyloseq::distance(genus_500_rare_Skull, method = "bray") ##get distances
+meta_500_genus_Skull <- meta_500_genus[!is.na(meta_500_genus$Skull), ] ##remove NAs from metadatta
+meta_500_genus_Skull <- filter(meta_500_genus_Skull, Season == "Autumn")
+anosim_genus_500_bray_Skull <- anosim(dist_500_genus_bray_Skull, meta_500_genus_Skull$Skull, permutations = 9999)
+P<- anosim_genus_500_bray_Skull$signif
+R<-anosim_genus_500_bray_Skull$statistic
+name<-"anosim_genus_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+genus_5000_rare_Skull <- subset_samples(genus_5000_rare, Skull != "NA")  ##subset phyloseq object
+genus_5000_rare_Skull <- subset_samples(genus_5000_rare_Skull, Season == "Autumn")
+dist_5000_genus_bray_Skull = phyloseq::distance(genus_5000_rare_Skull, method = "bray") ##get distances
+meta_5000_genus_Skull <- meta_5000_genus[!is.na(meta_5000_genus$Skull), ] ##remove NAs from metadatta
+meta_5000_genus_Skull <- filter(meta_5000_genus_Skull, Season == "Autumn")
+anosim_genus_5000_bray_Skull <- anosim(dist_5000_genus_bray_Skull, meta_5000_genus_Skull$Skull, permutations = 9999)
+P<- anosim_genus_5000_bray_Skull$signif
+R<-anosim_genus_5000_bray_Skull$statistic
+name<-"anosim_genus_5000_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_500_genus_wunifrac_Skull = phyloseq::distance(genus_500_rare_Skull, method = "wunifrac") ##get distances
+meta_500_genus_Skull <- meta_500_genus[!is.na(meta_500_genus$Skull), ] ##remove NAs from metadatta
+meta_500_genus_Skull <- filter(meta_500_genus_Skull, Season == "Autumn")
+anosim_genus_500_wunifrac_Skull <- anosim(dist_500_genus_wunifrac_Skull, meta_500_genus_Skull$Skull, permutations = 9999)
+P<- anosim_genus_500_wunifrac_Skull$signif
+R<-anosim_genus_500_wunifrac_Skull$statistic
+name<-"anosim_genus_500_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+dist_5000_genus_wunifrac_Skull = phyloseq::distance(genus_5000_rare_Skull, method = "wunifrac") ##get distances
+meta_5000_genus_Skull <- meta_5000_genus[!is.na(meta_5000_genus$Skull), ] ##remove NAs from metadatta
+meta_5000_genus_Skull <- filter(meta_5000_genus_Skull, Season == "Autumn")
+anosim_genus_5000_wunifrac_Skull <- anosim(dist_5000_genus_wunifrac_Skull, meta_5000_genus_Skull$Skull, permutations = 9999)
+P<- anosim_genus_5000_wunifrac_Skull$signif
+R<-anosim_genus_5000_wunifrac_Skull$statistic
+name<-"anosim_genus_5000_wunifrac_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+#write.csv(anosim_df_all, "anosim_df_all.csv")
+
+###Summer samples only 
+genus_500_Summer <- subset_samples(genus_5000_rare, Season == "Summer")  ##subset phyloseq object
+meta_summer <- as(sample_data(genus_500_Summer), "data.frame")
+head(meta_summer)
+
+bray_summer = phyloseq::distance(genus_500_Summer, method = "bray")
+wunifrac_summer = phyloseq::distance(genus_500_Summer, method = "wunifrac")
+
+anosim_bray_summer <- anosim(bray_summer, meta_summer$Year, permutations=999)
+anosim_wunifrac_summer <- anosim(wunifrac_summer, meta_summer$Year, permutations=999)
+
+
+
+anosim_genus_500_bray_Skull <- anosim(dist_500_genus_bray_Skull, meta_500_genus_Skull$Skull, permutations = 9999)
+P<- anosim_genus_500_bray_Skull$signif
+R<-anosim_genus_500_bray_Skull$statistic
+name<-"anosim_genus_500_bray_Skull"
+anosim_df <- c(R,P,name)
+anosim_df_all <-rbind(anosim_df_all, anosim_df)
+
+
