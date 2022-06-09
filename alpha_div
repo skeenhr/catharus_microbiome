@@ -1,0 +1,591 @@
+library(broom)
+library(knitr)
+library(plyr)
+library(dplyr)
+library(rstatix)
+library(ggpubr)
+
+####################
+###Cath_Alpha_Div###
+####################
+
+#start with cath_04 - unrarefied, unpruned
+
+###These gloms are on unrarefied, unpruned data 
+glom_phy <- tax_glom(cath_04, taxrank = 'Phylum')
+glom_cla <- tax_glom(cath_04, taxrank = 'Class')
+glom_ord <- tax_glom(cath_04, taxrank = 'Order')
+glom_fam <- tax_glom(cath_04, taxrank = 'Family')
+glom_gen <- tax_glom(cath_04, taxrank = 'Genus')
+
+##prune to appropriate amounts
+phylum_500 <- prune_samples(sample_sums(glom_phy)>=500, glom_phy)
+class_500 <- prune_samples(sample_sums(glom_cla)>=500, glom_cla)
+order_500 <- prune_samples(sample_sums(glom_ord)>=500, glom_ord)
+family_500 <- prune_samples(sample_sums(glom_fam)>=500, glom_fam)
+genus_500 <- prune_samples(sample_sums(glom_gen)>=500, glom_gen)
+
+phylum_5000 <- prune_samples(sample_sums(glom_phy)>=5000, glom_phy)
+class_5000 <- prune_samples(sample_sums(glom_cla)>=5000, glom_cla)
+order_5000 <- prune_samples(sample_sums(glom_ord)>=5000, glom_ord)
+family_5000 <- prune_samples(sample_sums(glom_fam)>=5000, glom_fam)
+genus_5000 <- prune_samples(sample_sums(glom_gen)>=5000, glom_gen)
+
+###rarefy even depth 
+phylum_500_rare <- rarefy_even_depth(phylum_500, rngseed=124, replace=FALSE)
+class_500_rare <- rarefy_even_depth(class_500, rngseed=124, replace=FALSE)
+order_500_rare <- rarefy_even_depth(order_500, rngseed=124, replace=FALSE)
+family_500_rare <- rarefy_even_depth(family_500, rngseed=124, replace=FALSE)
+genus_500_rare <- rarefy_even_depth(genus_500, rngseed=124, replace=FALSE)
+
+phylum_5000_rare <- rarefy_even_depth(phylum_5000, rngseed=124, replace=FALSE)
+class_5000_rare <- rarefy_even_depth(class_5000, rngseed=124, replace=FALSE)
+order_5000_rare <- rarefy_even_depth(order_5000, rngseed=124, replace=FALSE)
+family_5000_rare <- rarefy_even_depth(family_5000, rngseed=124, replace=FALSE)
+genus_5000_rare <- rarefy_even_depth(genus_5000, rngseed=124, replace=FALSE)
+
+
+###remove ASVs with 0 counts
+###to see if there are ASVs with 0 count
+###use any(taxa_sums(phyloseq_object) == 0)
+any(taxa_sums(phylum_500_rare) == 0)
+any(taxa_sums(class_500_rare) == 0)
+any(taxa_sums(order_500_rare) == 0)
+any(taxa_sums(family_500_rare) == 0)
+any(taxa_sums(genus_500_rare) == 0)
+
+any(taxa_sums(phylum_5000_rare) == 0)
+any(taxa_sums(class_5000_rare) == 0)
+any(taxa_sums(order_5000_rare) == 0)
+any(taxa_sums(family_5000_rare) == 0)
+any(taxa_sums(genus_5000_rare) == 0)
+
+
+#phylum_500_rare <- prune_taxa(taxa_sums(phylum_500_rare) > 0, phylum_500_rare)
+#class_500_rare <- prune_taxa(taxa_sums(class_500_rare) > 0, class_500_rare)
+#order_500_rare <- prune_taxa(taxa_sums(order_500_rare) > 0, order_500_rare)
+#family_500_rare <- prune_taxa(taxa_sums(family_500_rare) > 0, family_500_rare)
+#genus_500_rare <- prune_taxa(taxa_sums(genus_500_rare) > 0, genus_500_rare)
+
+#phylum_5000_rare <- prune_taxa(taxa_sums(phylum_5000_rare) > 0, phylum_5000_rare)
+#class_5000_rare <- prune_taxa(taxa_sums(class_5000_rare) > 0, class_5000_rare)
+#order_5000_rare <- prune_taxa(taxa_sums(order_5000_rare) > 0, order_5000_rare)
+#family_5000_rare <- prune_taxa(taxa_sums(family_5000_rare) > 0, family_5000_rare)
+#genus_5000_rare <- prune_taxa(taxa_sums(genus_5000_rare) > 0, genus_5000_rare)
+
+
+
+###Decide which object to use to estimate richness
+
+rich_object <- phylum_500_rare
+
+#save_name <- "alpha_div_genus_500_rare"
+
+###estimate richness
+rich_est <- estimate_richness(rich_object, measure = c("Observed", "Shannon"))
+
+###shapiro-wilk normality test
+rich_est %>% shapiro_test(Observed, Shannon)
+
+rich_est$Observed <- log10(rich_est$Observed)
+colnames(rich_est)[1] <- "Log_Obs"
+colnames(rich_est)[2] <- "SD"
+head(rich_est)
+
+##make rownames in a column 
+d1 <- rich_est
+SampleID <- rownames(d1)
+rownames(d1) <- NULL
+rich_est <- cbind(SampleID, d1)
+
+###Combine richness with metadata
+rich_meta <- merge(metadata, rich_est,  by = "SampleID")
+head(rich_meta)
+
+rich_meta$Season <- factor(rich_meta$Season,
+                           levels = c("Spring", "Summer", "Autumn"))
+
+rich_meta$species <- factor(rich_meta$species,
+                            levels = c("minimus", "guttatus", "ustulatus", "fuscescens"))
+
+rich_meta$Year <- factor(rich_meta$Year,
+                         levels = c("2017A", "2018A", "2019A"))
+
+
+
+###Get mean richness value
+#species
+mean_obs_spec <- ddply(rich_meta, "species", summarise, grp.mean=mean(Log_Obs))
+head(mean_obs_spec)
+min_obs <- mean_obs_spec[1,2]
+gutt_obs <- mean_obs_spec[2,2]
+ust_obs <- mean_obs_spec[3,2]
+fusc_obs <- mean_obs_spec[4,2]
+
+mean_SI_spec <- ddply(rich_meta, "species", summarise, grp.mean=mean(SD))
+head(mean_SI_spec)
+min_SI <- mean_obs_spec[1,2]
+gutt_SI <- mean_obs_spec[2,2]
+ust_SI <- mean_obs_spec[3,2]
+fusc_SI <- mean_obs_spec[4,2]
+
+#Year
+mean_obs_year <- ddply(rich_meta, "Year", summarise, grp.mean=mean(Log_Obs))
+head(mean_obs_year)
+obs_2017 <- mean_obs_year[1,2]
+obs_2018 <- mean_obs_year[2,2]
+obs_2019 <- mean_obs_year[3,2]
+
+
+mean_SI_year <- ddply(rich_meta, "Year", summarise, grp.mean=mean(SD))
+head(mean_SI_year)
+SI_2017 <- mean_SI_year[1,2]
+SI_2018 <- mean_SI_year[2,2]
+SI_2019 <- mean_SI_year[3,2]
+
+
+#season
+mean_obs_seas <- ddply(rich_meta, "Season", summarise, grp.mean=mean(Log_Obs))
+head(mean_obs_seas)
+spring_obs <- mean_obs_seas[1,2]
+summer_obs <- mean_obs_seas[2,2]
+autumn_obs <- mean_obs_seas[3,2]
+
+mean_SI_seas <- ddply(rich_meta, "Season", summarise, grp.mean=mean(SD))
+head(mean_SI_seas)
+spring_SI <- mean_SI_seas[1,2]
+summer_SI <- mean_SI_seas[2,2]
+autumn_SI <- mean_SI_seas[3,2]
+
+
+#age
+rich_meta_age <- subset(rich_meta, Skull != "NA")
+rich_meta_age <- subset(rich_meta_age, Season == "Autumn")
+
+mean_obs_age <- ddply(rich_meta_age, "Skull", summarise, grp.mean=mean(Log_Obs))
+head(mean_obs_age)
+AHY_obs <- mean_obs_age[1,2]
+HY_obs <- mean_obs_age[2,2]
+
+mean_SI_age <- ddply(rich_meta_age, "Skull", summarise, grp.mean=mean(SD))
+head(mean_SI_age)
+AHY_SI <- mean_SI_age[1,2]
+HY_SI <- mean_SI_age[2,2]
+
+
+#sex
+rich_meta_sex <- subset(rich_meta, Sex != "NA")
+
+mean_obs_sex <- ddply(rich_meta_sex, "Sex", summarise, grp.mean=mean(Log_Obs))
+head(mean_obs_sex)
+female_obs <- mean_obs_sex[1,2]
+male_obs <- mean_obs_sex[2,2]
+
+mean_SI_sex <- ddply(rich_meta_sex, "Sex", summarise, grp.mean=mean(SD))
+head(mean_SI_sex)
+female_SI <- mean_SI_sex[1,2]
+male_SI <- mean_SI_sex[2,2]
+
+
+
+###Stacked species
+color_species <- c("ustulatus" = "#FF3333",
+                   "fuscescens" = "#1f968bff",
+                   "minimus" = "#7e57c2",
+                   "guttatus" = "darkorange1") # darkoragange = ff7f00
+
+
+spec_obs <- ggplot(rich_meta, aes(x = Log_Obs, fill = species)) + 
+  geom_density(alpha =  0.4) + 
+  scale_fill_manual(values = color_species) +
+  scale_color_manual(values = color_species) +
+  geom_vline(xintercept = fusc_obs, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = gutt_obs, colour="darkorange1", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = min_obs, colour="#7e57c2", linetype = "dashed", size = 1) + #"#482677FF"
+  geom_vline(xintercept = ust_obs, colour="#FF3333", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("Density") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5))+
+  scale_x_continuous(expand = c(0,0)) +
+  #scale_y_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.5, 1.0, 1.5),
+                     limits = c(0.00,1.75)) +
+  theme(legend.position="none") 
+spec_obs
+
+spec_SI <- ggplot(rich_meta, aes(x = SD, fill = species)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_species, 
+                    name = "Species", labels = c("guttatus" = "Hermit", "minimus" = "Grey-Cheeked",
+                                                 "ustulatus" = "Swainson's", "fuscescens" = "Veery")) +
+  scale_color_manual(values = color_species) +
+  geom_vline(xintercept = fusc_SI, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = gutt_SI, colour="darkorange1", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = min_SI, colour="#7e57c2", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = ust_SI, colour="#FF3333", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.2, 0.4, 0.6),
+                     limits = c(0.00, 0.6)) +
+  theme(axis.line = element_line(size = 0.5))
+spec_SI
+
+
+
+
+
+###
+###Stacked Season
+###
+color_season <- c("Spring" = "#1f968bff",
+                  "Summer" = "#7e57c2",
+                  "Autumn" = "darkorange1")
+
+season_obs <- ggplot(rich_meta, aes(x = Log_Obs, fill = Season)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_season) +
+  scale_color_manual(values = color_season) +
+  geom_vline(xintercept = spring_obs, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = autumn_obs, colour="darkorange1", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = summer_obs, colour="#7e57c2", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("Density") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(legend.position="none") +
+  theme(axis.line = element_line(size = 0.5)) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.5, 1.0, 1.5),
+                     limits = c(0.00,1.75)) 
+season_obs
+
+season_SI <- ggplot(rich_meta, aes(x = SD, fill = Season)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_season, 
+                    name = "Season", 
+                    labels = c("Spring" = "Spring", "Summer" = "Summer",
+                               "Autumn" = "Autumn")) +
+  scale_color_manual(values = color_season) +
+  geom_vline(xintercept = spring_SI, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = autumn_SI, colour="darkorange1", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = summer_SI, colour="#7e57c2", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5)) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.2, 0.4, 0.6),
+                     limits = c(0.00, 0.6))                  
+season_SI
+
+###
+###Stacked Year
+###
+color_year <- c("2017A" = "#FF3333",
+                "2018A" = "#1f968bff",
+                "2019A" = "#7e57c2")
+
+year_obs <- ggplot(rich_meta, aes(x = Log_Obs, fill = Year)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_year) +
+  scale_color_manual(values = color_year) +
+  geom_vline(xintercept = obs_2017, colour="#FF3333", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = obs_2018, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = obs_2019, colour="#7e57c2", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("Density") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(legend.position="none") +
+  theme(axis.line = element_line(size = 0.5)) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.5, 1.0, 1.5),
+                     limits = c(0.00,1.75)) 
+year_obs
+
+year_SI <- ggplot(rich_meta, aes(x = SD, fill = Year)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_year, 
+                    name = "Year", 
+                    labels = c("2017A" = "2017", "2018A" = "2018",
+                               "2019A" = "2019")) +
+  scale_color_manual(values = color_year) +
+  geom_vline(xintercept = SI_2017, colour="#FF3333", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = SI_2018, colour="#1f968bff", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = SI_2019, colour="#7e57c2", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5))+
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.2, 0.4, 0.6),
+                     limits = c(0.00, 0.6))
+year_SI
+
+
+###
+###Stacked Age
+###
+color_age <- c("HY" = "#FF3333",
+               "AHY" = "#1f968bff")
+rich_meta_age <- subset(rich_meta, Skull != "NA")
+
+age_obs <- ggplot(rich_meta_age, aes(x = Log_Obs, fill = Skull)) + 
+  geom_density(alpha =  0.5) + 
+  scale_color_manual(values = color_age) +
+  geom_vline(xintercept = HY_obs, colour="#FF3333", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = AHY_obs, colour="#1f968bff", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("Density") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5))+
+  theme(legend.position="none") +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.5, 1.0, 1.5),
+                     limits = c(0.00,1.75)) 
+age_obs
+
+age_SI <- ggplot(rich_meta_age, aes(x = SD, fill = Skull)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_age, 
+                    name = "Age Class", 
+                    labels = c("HY" = "Hatch Year", 
+                               "AHY" = "After Hatch Year")) +
+  scale_color_manual(values = color_age) +
+  geom_vline(xintercept = HY_SI, colour="#FF3333", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = AHY_SI, colour="#1f968bff", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("") +
+  ylab("") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5))+
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.2, 0.4, 0.6),
+                     limits = c(0.00, 0.6)) 
+age_SI
+
+###
+###Stacked Sex
+###
+color_sex <- c("female" = "#7e57c2",
+               "male" = "darkorange1")
+
+rich_meta_sex <- subset(rich_meta, Sex != "NA")
+
+sex_obs <- ggplot(rich_meta_sex, aes(x = Log_Obs, fill = Sex)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_sex) +
+  scale_color_manual(values = color_sex) +
+  geom_vline(xintercept = female_obs, colour="#7e57c2", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = male_obs, colour="darkorange1", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("(log) Observed Diversity") +
+  ylab("Density") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(legend.position="none") +
+  theme(axis.line = element_line(size = 0.5)) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.5, 1.0, 1.5),
+                     limits = c(0.00,1.75)) 
+sex_obs
+
+sex_SI <- ggplot(rich_meta_sex, aes(x = SD, fill = Sex)) + 
+  geom_density(alpha =  0.5) + 
+  scale_fill_manual(values = color_sex, 
+                    name = "Sex", 
+                    labels = c("female" = "Female", 
+                               "male" = "Male")) +
+  scale_color_manual(values = color_sex) +
+  geom_vline(xintercept = female_SI, colour="#7e57c2", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = male_SI, colour="darkorange1", linetype = "dashed", size = 1) +
+  ggtitle("") +
+  xlab("Shannon Diversity Index") +
+  ylab("") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.line = element_line(size = 0.5))+
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = c(0.0, 0.2, 0.4, 0.6),
+                     limits = c(0.00, 0.6))
+sex_SI
+
+
+###PUT IT ALL TOGETHER 
+alpha_plot_right<- plot_grid(year_SI+ theme(legend.justification = c(0,1)),
+                       season_SI+ theme(legend.justification = c(0,1)), 
+                       spec_SI+ theme(legend.justification = c(0,1)),
+                       age_SI+ theme(legend.justification = c(0,1)),
+                       sex_SI+ theme(legend.justification = c(0,1)),
+                       nrow=5, 
+                       align = "v",
+                       rel_heights = c(1,1,1,1,1.1))
+
+alpha_plot_left <- plot_grid(year_obs, season_obs, spec_obs,
+                              age_obs, sex_obs, nrow=5, 
+                              rel_heights = c(1,1,1,1,1.1))
+
+alpha_plots_all <- plot_grid(alpha_plot_left, alpha_plot_right, 
+                             ncol=2, rel_widths = c(0.42,0.58))
+alpha_plots_all
+
+ggsave("alpha_div_phylum_500_14Jan.pdf",
+       plot = alpha_plots_all, 
+       width = 8, height = 10)
+
+
+###########
+###ANOVA###
+###########
+
+library(vegan)
+library(lme4)
+library(lmerTest)
+library(stats)
+
+#set up dataframe
+ADiv_aov_results <- data.frame(Date=as.Date(character()),
+                               File=character(), 
+                               User=character(), 
+                               stringsAsFactors=FALSE) 
+
+
+###Decide which object to use to estimate richness
+rich_object <- genus_500_rare
+group <- "genus_500_rare"
+
+###estimate richness
+
+rich_est <- estimate_richness(rich_object, measure = c("Observed", "Shannon"))
+rich_est$Observed <- log10(rich_est$Observed)
+colnames(rich_est)[1] <- "Log_Obs"
+colnames(rich_est)[2] <- "SD"
+head(rich_est)
+
+##make rownames in a column 
+d1 <- rich_est
+SampleID <- rownames(d1)
+rownames(d1) <- NULL
+rich_est <- cbind(SampleID, d1)
+
+###Combine richness with metadata
+rich_meta <- merge(metadata, rich_est,  by = "SampleID")
+#head(rich_meta)
+#shapiro.test(rich_meta$Log_Obs)
+#shapiro.test(rich_meta$SD)
+
+###aov ~ Year, Season, species 
+obs_aov<- aov(Log_Obs ~ Year + Season + species, 
+              data = rich_meta)
+TukeyHSD(obs_aov)
+summary(obs_aov)
+
+sd_aov<- aov(SD ~ Year + Season + species, 
+             data = rich_meta)
+TukeyHSD(sd_aov)
+
+summary(sd_aov)
+
+out_obs<-tidy(obs_aov)
+out_obs<-as.data.frame(out_obs)
+out_obs$phylo_object<-group
+out_obs$div_measure<-"Log_Obs"
+
+out_sd<-tidy(sd_aov)
+out_sd<-as.data.frame(out_sd)
+out_sd$phylo_object<-group
+out_sd$div_measure<-"SD"
+
+###
+###Age
+###
+rich_meta_age <- subset(rich_meta, Skull != "NA")
+rich_meta_age <- subset(rich_meta_age, Season == "Autumn")
+
+
+###aov ~ Year, Season, species 
+obs_age<- aov(Log_Obs ~ Skull, 
+              data = rich_meta_age)
+
+sd_age<- aov(SD ~ Skull, 
+             data = rich_meta_age)
+
+
+
+out_obs_age<-tidy(obs_age)
+out_obs_age<-as.data.frame(out_obs_age)
+out_obs_age$phylo_object<-group
+out_obs_age$div_measure<-"Log_Obs"
+
+out_sd_age<-tidy(sd_age)
+out_sd_age<-as.data.frame(out_sd_age)
+out_sd_age$phylo_object<-group
+out_sd_age$div_measure<-"SD"
+
+
+###
+###Sex
+###
+rich_meta_sex <- subset(rich_meta, Sex != "NA")
+unique(rich_meta_sex$Sex)
+
+###aov ~ Year, Season, species 
+obs_sex<- aov(Log_Obs ~ Sex, 
+              data = rich_meta_sex)
+
+sd_sex<- aov(SD ~ Sex, 
+             data = rich_meta_sex)
+
+
+out_obs_sex<-tidy(obs_sex)
+out_obs_sex<-as.data.frame(out_obs_sex)
+out_obs_sex$phylo_object<-group
+out_obs_sex$div_measure<-"Log_Obs"
+
+out_sd_sex<-tidy(sd_sex)
+out_sd_sex<-as.data.frame(out_sd_sex)
+out_sd_sex$phylo_object<-group
+out_sd_sex$div_measure<-"SD"
+
+
+ADiv_aov_results <- rbind(ADiv_aov_results, out_obs, out_sd, 
+                          out_obs_age, out_sd_age, out_obs_sex, out_sd_sex)
+
+#write.csv(ADiv_aov_results, "alpha_div/alpha_div_Oct182021.csv")
+
